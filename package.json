@@ -17,6 +17,16 @@
     "type": "git",
     "url": "git+https://github.com/slaapyhoofd/lnurl-nfc.git"
   },
+  "keywords": [
+    "nfc",
+    "lnurl",
+    "lnurlw",
+    "invoice",
+    "payment",
+    "lightning",
+    "bolt11",
+    "bech32"
+  ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/slaapyhoofd/lnurl-nfc/issues"
@@ -26,7 +36,6 @@
     "bech32": "^2.0.0"
   },
   "devDependencies": {
-    "@types/node": "^18.7.15",
     "@types/w3c-web-nfc": "^1.0.0",
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
