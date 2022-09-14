@@ -78,43 +78,57 @@ export class NFCReader {
       return reject(ErrorReason.readingError);
     }
 
-    if (event.message.records.length === 0) {
-      return reject(ErrorReason.noLnurlFound);
+    const decoder = new TextDecoder('utf-8');
+    const alternatives: string[] = [];
+
+    for (let record of event.message.records) {
+      if (!record || !record.data) {
+        continue;
+      }
+
+      try {
+        const currentValue = decoder.decode(record.data);
+        const lowercase = currentValue.toLowerCase();
+        if (lowercase.startsWith('lightning:')) {
+          // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
+          const lnurl = currentValue.slice('lightning:'.length);
+          const decoded = bech32.decode(lnurl, 2000);
+          const bytes = bech32.fromWords(decoded.words);
+          const result = decoder.decode(new Uint8Array(bytes));
+          return resolve(result);
+        } else if (lowercase.startsWith('lnurlw://')) {
+          // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
+          let replaceWith = 'https://';
+          if (lowercase.endsWith('.onion') || lowercase.indexOf('.onion/') >= 0) {
+            replaceWith = 'http://';
+          }
+          return resolve(replaceWith + currentValue.slice(9));
+        } else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
+          // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
+          const decoded = bech32.decode(currentValue, 2000);
+          const bytes = bech32.fromWords(decoded.words);
+          const result = decoder.decode(new Uint8Array(bytes));
+          return resolve(result);
+        } else if (lowercase.startsWith('https://')) {
+          // https:// might be the real deal. Add as alternative.
+          alternatives.push(currentValue);
+        } else if (lowercase.startsWith('http://')) {
+          // http:// might be the real deal if it's an onion. Add as alternative.
+          if (lowercase.endsWith('.onion') || lowercase.indexOf('.onion/') >= 0) {
+            alternatives.push(currentValue);
+          }
+        }
+      } catch { /* Squelch. Decoding error. Record is garbage. */ }
     }
 
-    const record = event.message.records[0];
-    const textDecoder = new TextDecoder('utf-8');
-
-    // Decode NDEF data from tag, and remove lightning: prefix
-    try {
-      const lnurl = textDecoder.decode(record.data);
-
-      // return the decoded lnurl
-      return resolve(lnurl);
-    } catch (e) {
-      // Squelch decoding error. Data on the card is garbage.
-      return reject(ErrorReason.noLnurlFound);
+    // Apparently there was no good lnurl match in the ndef records array. 
+    // Maybe there was a less obvious match. If so, return that.
+    if (alternatives.length > 0) {
+      return resolve(alternatives[0]);
     }
-  }
-}
 
-export function lnurlDecode(lnurl: string): string {
-  if (lnurl.indexOf('lnurlw:') !== -1) {
-    // boltcard support
-    return lnurl.replace('lnurlw:', 'https:');
+    return reject(ErrorReason.noLnurlFound);
   }
-  const result = bech32.decode(lnurl.replace('lightning:', ''), 2000);
-  const requestByteArray = bech32.fromWords(result.words);
-
-  return bin2String(requestByteArray);
-}
-
-export function bin2String(array: number[]) {
-  let result = '';
-  for (let i = 0; i < array.length; i++) {
-    result += String.fromCharCode(array[i]);
-  }
-  return result;
 }
 
 export async function handleLNURL(
@@ -123,8 +137,7 @@ export async function handleLNURL(
   proxy: string,
 ): Promise<IPaymentResult> {
   try {
-    const decoded = lnurlDecode(lnurl);
-    const { callback, k1, reason, status } = await (await fetch(`${proxy}?url=${decoded}`)).json();
+    const { callback, k1, reason, status } = await (await fetch(`${proxy}?url=${lnurl}`)).json();
 
     return status === 'ERROR'
       ? {
