@@ -64,21 +64,24 @@ export class NFCReader {
         signal.onabort = () => reject(ErrorReason.aborted);
       }
 
-      this.ndefReader.onreadingerror = () => {
-        return reject(ErrorReason.readingError);
-      };
-
-      this.ndefReader.onreading = ({ message }) => {
-        const record = message.records[0];
-        const textDecoder = new TextDecoder('utf-8');
-
-        // Decode NDEF data from tag, and remove lightning: prefix
-        const lnurl = textDecoder.decode(record.data);
-
-        // return the decoded lnurl
-        return resolve(lnurl);
-      };
+      this.ndefReader.onreadingerror = () => this._onReadingError(reject);
+      this.ndefReader.onreading = (event) => this._onReading(event, resolve, reject);
     });
+  }
+
+  _onReadingError(reject: (reason: ErrorReason) => void) {
+    return reject(ErrorReason.readingError);
+  }
+
+  _onReading(event: NDEFReadingEvent, resolve: (value: string) => void, reject: (reason: ErrorReason) => void) {
+    const record = event.message.records[0];
+    const textDecoder = new TextDecoder('utf-8');
+
+    // Decode NDEF data from tag, and remove lightning: prefix
+    const lnurl = textDecoder.decode(record.data);
+
+    // return the decoded lnurl
+    return resolve(lnurl);
   }
 }
 
