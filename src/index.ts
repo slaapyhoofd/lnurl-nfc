@@ -7,6 +7,15 @@ export interface IPaymentResult {
   message: string;
 }
 
+export enum ErrorReason {
+  unavailable,
+  aborted,
+  scanInProgress,
+  permissionDenied,
+  readingError,
+  noLnurlFound
+}
+
 export class NFCReader {
   private readonly available: boolean;
   private readonly ndefReader: NDEFReader | undefined;
@@ -23,12 +32,24 @@ export class NFCReader {
     }
   }
 
-  public async listen(callback: (lnurl: string) => void): Promise<void> {
-    if (this.available && this.ndefReader && !this.listening) {
-      await this.ndefReader.scan();
+  public async listen(): Promise<string> {
+    if (!this.available || !this.ndefReader) {
+      return Promise.reject(ErrorReason.unavailable);
+    }
+
+    if (this.listening) {
+      return Promise.reject(ErrorReason.scanInProgress);
+    }
+
+    await this.ndefReader.scan();
+
+    return new Promise((resolve, reject) => {
+      if (!this.ndefReader) {
+        return reject(ErrorReason.unavailable);
+      }
 
       this.ndefReader.onreadingerror = () => {
-        throw new Error('Error reading nfc');
+        return reject(ErrorReason.readingError);
       };
 
       this.ndefReader.onreading = ({ message }) => {
@@ -39,11 +60,11 @@ export class NFCReader {
         const lnurl = textDecoder.decode(record.data);
 
         // return the decoded lnurl
-        callback(lnurl);
+        return resolve(lnurl);
       };
 
       this.listening = true;
-    }
+    });
   }
 }
 
