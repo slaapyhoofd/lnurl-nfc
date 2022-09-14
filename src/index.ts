@@ -27,12 +27,11 @@ export class NFCReader {
     if (this.available && this.ndefReader && !this.listening) {
       await this.ndefReader.scan();
 
-      this.ndefReader.addEventListener('readingerror', () => {
+      this.ndefReader.onreadingerror = () => {
         throw new Error('Error reading nfc');
-      });
+      };
 
-      // @ts-ignore
-      this.ndefReader.addEventListener('reading', ({ message }) => {
+      this.ndefReader.onreading = ({ message }) => {
         const record = message.records[0];
         const textDecoder = new TextDecoder('utf-8');
 
@@ -41,7 +40,7 @@ export class NFCReader {
 
         // return the decoded lnurl
         callback(lnurl);
-      });
+      };
 
       this.listening = true;
     }
