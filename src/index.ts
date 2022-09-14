@@ -95,26 +95,29 @@ export class NFCReader {
           const decoded = bech32.decode(lnurl, 2000);
           const bytes = bech32.fromWords(decoded.words);
           const result = decoder.decode(new Uint8Array(bytes));
+
           return resolve(result);
         } else if (lowercase.startsWith('lnurlw://')) {
           // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
           let replaceWith = 'https://';
-          if (lowercase.endsWith('.onion') || lowercase.indexOf('.onion/') >= 0) {
+          if (_isOnion(currentValue)) {
             replaceWith = 'http://';
           }
+
           return resolve(replaceWith + currentValue.slice(9));
         } else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
           // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
           const decoded = bech32.decode(currentValue, 2000);
           const bytes = bech32.fromWords(decoded.words);
           const result = decoder.decode(new Uint8Array(bytes));
+
           return resolve(result);
         } else if (lowercase.startsWith('https://')) {
           // https:// might be the real deal. Add as alternative.
           alternatives.push(currentValue);
         } else if (lowercase.startsWith('http://')) {
           // http:// might be the real deal if it's an onion. Add as alternative.
-          if (lowercase.endsWith('.onion') || lowercase.indexOf('.onion/') >= 0) {
+          if (_isOnion(currentValue)) {
             alternatives.push(currentValue);
           }
         }
@@ -131,20 +134,42 @@ export class NFCReader {
   }
 }
 
+function _isOnion(potentialOnion: string) {
+  const lowercase = potentialOnion.toLowerCase();
+  return lowercase && 
+    (lowercase.endsWith('.onion') 
+      || lowercase.indexOf('.onion/') >= 0 
+      || lowercase.indexOf('.onion?') >= 0);
+}
+
 export async function handleLNURL(
   lnurl: string,
   invoice: string,
   proxy: string,
 ): Promise<IPaymentResult> {
   try {
-    const { callback, k1, reason, status } = await (await fetch(`${proxy}?url=${lnurl}`)).json();
+    const encodedLnurl = encodeURIComponent(lnurl);
+    const response = await fetch(`${proxy}?url=${encodedLnurl}`);
+    const { callback, k1, reason, status } = await response.json();
 
-    return status === 'ERROR'
-      ? {
-          success: false,
-          message: reason,
-        }
-      : handlePayment(callback, k1, invoice, proxy);
+    if (status === 'ERROR') {
+      return {
+        success: false,
+        message: reason,
+      };
+    }
+
+    if (!callback 
+      || typeof callback !== 'string' 
+      || !k1 
+      || typeof k1 !== 'string') {
+      return {
+        success: false,
+        message: 'invalid response',
+      };
+    }
+
+    return handlePayment(callback, k1, invoice, proxy);
   } catch (e: any) {
     return {
       success: false,
@@ -160,20 +185,30 @@ export async function handlePayment(
   proxy: string,
 ): Promise<IPaymentResult> {
   try {
-    const paymentRequest = `${callback}?k1=${k1}&pr=${invoice.replace('lightning:', '')}`;
+    const separator = callback.indexOf('?') === -1 ? '?' : '&';
+    const paymentRequest = `${callback}${separator}k1=${k1}&pr=${invoice.replace('lightning:', '')}`;
     const paymentResult = await (
       await fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`)
     ).json();
 
-    return paymentResult.status === 'ERROR'
-      ? {
-          success: false,
-          message: paymentResult.reason,
-        }
-      : {
-          success: true,
-          message: 'invoice paid!',
-        };
+    if (paymentResult.status === 'OK') {
+      return {
+        success: true,
+        message: 'invoice payment initiated',
+      };
+    }
+
+    if (paymentResult.status === 'ERROR') {
+      return {
+        success: false,
+        message: paymentResult.reason,
+      };
+    }
+    
+    return {
+      success: false,
+      message: 'Invalid reponse'
+    };
   } catch (e: any) {
     return {
       success: false,
