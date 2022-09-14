@@ -20,8 +20,6 @@ export class NFCReader {
   private readonly available: boolean;
   private readonly ndefReader: NDEFReader | undefined;
 
-  private listening = false;
-
   constructor() {
     // Checks if Web NFC is present
     if ('NDEFReader' in window) {
@@ -37,11 +35,25 @@ export class NFCReader {
       return Promise.reject(ErrorReason.unavailable);
     }
 
-    if (this.listening) {
-      return Promise.reject(ErrorReason.scanInProgress);
-    }
+    try
+    {
+      await this.ndefReader.scan();
+    } catch (e) {
+      if (e instanceof DOMException && !!e.name) {
+        switch (e.name) {
+          case 'AbortError':
+            return Promise.reject(ErrorReason.aborted);
+          case 'InvalidStateError':
+            return Promise.reject(ErrorReason.scanInProgress);
+          case 'NotAllowedError':
+            return Promise.reject(ErrorReason.permissionDenied);
+          case 'NotSupportedError':
+            return Promise.reject(ErrorReason.unavailable);
+        }
+      }
 
-    await this.ndefReader.scan();
+      throw(e);
+    }
 
     return new Promise((resolve, reject) => {
       if (!this.ndefReader) {
@@ -62,8 +74,6 @@ export class NFCReader {
         // return the decoded lnurl
         return resolve(lnurl);
       };
-
-      this.listening = true;
     });
   }
 }
