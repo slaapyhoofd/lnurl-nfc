@@ -30,14 +30,14 @@ export class NFCReader {
     }
   }
 
-  public async listen(): Promise<string> {
+  public async listen(signal?: AbortSignal): Promise<string> {
     if (!this.available || !this.ndefReader) {
       return Promise.reject(ErrorReason.unavailable);
     }
 
     try
     {
-      await this.ndefReader.scan();
+      await this.ndefReader.scan(signal === undefined ? undefined : { signal });
     } catch (e) {
       if (e instanceof DOMException && !!e.name) {
         switch (e.name) {
@@ -58,6 +58,10 @@ export class NFCReader {
     return new Promise((resolve, reject) => {
       if (!this.ndefReader) {
         return reject(ErrorReason.unavailable);
+      }
+
+      if (signal !== undefined) {
+        signal.onabort = () => reject(ErrorReason.aborted);
       }
 
       this.ndefReader.onreadingerror = () => {
