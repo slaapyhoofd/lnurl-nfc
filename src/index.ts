@@ -13,7 +13,7 @@ export enum ErrorReason {
   scanInProgress,
   permissionDenied,
   readingError,
-  noLnurlFound
+  noLnurlFound,
 }
 
 export class NFCReader {
@@ -35,8 +35,7 @@ export class NFCReader {
       return Promise.reject(ErrorReason.unavailable);
     }
 
-    try
-    {
+    try {
       await this.ndefReader.scan(signal === undefined ? undefined : { signal });
     } catch (e) {
       if (e instanceof DOMException && !!e.name) {
@@ -52,7 +51,7 @@ export class NFCReader {
         }
       }
 
-      throw(e);
+      throw e;
     }
 
     return new Promise((resolve, reject) => {
@@ -73,8 +72,17 @@ export class NFCReader {
     return reject(ErrorReason.readingError);
   }
 
-  _onReading(event: NDEFReadingEvent, resolve: (value: string) => void, reject: (reason: ErrorReason) => void) {
-    if (!event || !event.message || !event.message.records || !Array.isArray(event.message.records)) {
+  _onReading(
+    event: NDEFReadingEvent,
+    resolve: (value: string) => void,
+    reject: (reason: ErrorReason) => void,
+  ) {
+    if (
+      !event ||
+      !event.message ||
+      !event.message.records ||
+      !Array.isArray(event.message.records)
+    ) {
       return reject(ErrorReason.readingError);
     }
 
@@ -121,10 +129,12 @@ export class NFCReader {
             alternatives.push(currentValue);
           }
         }
-      } catch { /* Squelch. Decoding error. Record is garbage. */ }
+      } catch {
+        /* Squelch. Decoding error. Record is garbage. */
+      }
     }
 
-    // Apparently there was no good lnurl match in the ndef records array. 
+    // Apparently there was no good lnurl match in the ndef records array.
     // Maybe there was a less obvious match. If so, return that.
     if (alternatives.length > 0) {
       return resolve(alternatives[0]);
@@ -136,10 +146,12 @@ export class NFCReader {
 
 function _isOnion(potentialOnion: string) {
   const lowercase = potentialOnion.toLowerCase();
-  return lowercase && 
-    (lowercase.endsWith('.onion') 
-      || lowercase.indexOf('.onion/') >= 0 
-      || lowercase.indexOf('.onion?') >= 0);
+  return (
+    lowercase &&
+    (lowercase.endsWith('.onion') ||
+      lowercase.indexOf('.onion/') >= 0 ||
+      lowercase.indexOf('.onion?') >= 0)
+  );
 }
 
 export async function handleLNURL(
@@ -159,10 +171,7 @@ export async function handleLNURL(
       };
     }
 
-    if (!callback 
-      || typeof callback !== 'string' 
-      || !k1 
-      || typeof k1 !== 'string') {
+    if (!callback || typeof callback !== 'string' || !k1 || typeof k1 !== 'string') {
       return {
         success: false,
         message: 'invalid response',
@@ -186,7 +195,10 @@ export async function handlePayment(
 ): Promise<IPaymentResult> {
   try {
     const separator = callback.indexOf('?') === -1 ? '?' : '&';
-    const paymentRequest = `${callback}${separator}k1=${k1}&pr=${invoice.replace('lightning:', '')}`;
+    const paymentRequest = `${callback}${separator}k1=${k1}&pr=${invoice.replace(
+      'lightning:',
+      '',
+    )}`;
     const paymentResult = await (
       await fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`)
     ).json();
@@ -204,10 +216,10 @@ export async function handlePayment(
         message: paymentResult.reason,
       };
     }
-    
+
     return {
       success: false,
-      message: 'Invalid reponse'
+      message: 'Invalid reponse',
     };
   } catch (e: any) {
     return {
