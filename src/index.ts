@@ -74,14 +74,27 @@ export class NFCReader {
   }
 
   _onReading(event: NDEFReadingEvent, resolve: (value: string) => void, reject: (reason: ErrorReason) => void) {
+    if (!event || !event.message || !event.message.records || !Array.isArray(event.message.records)) {
+      return reject(ErrorReason.readingError);
+    }
+
+    if (event.message.records.length === 0) {
+      return reject(ErrorReason.noLnurlFound);
+    }
+
     const record = event.message.records[0];
     const textDecoder = new TextDecoder('utf-8');
 
     // Decode NDEF data from tag, and remove lightning: prefix
-    const lnurl = textDecoder.decode(record.data);
+    try {
+      const lnurl = textDecoder.decode(record.data);
 
-    // return the decoded lnurl
-    return resolve(lnurl);
+      // return the decoded lnurl
+      return resolve(lnurl);
+    } catch (e) {
+      // Squelch decoding error. Data on the card is garbage.
+      return reject(ErrorReason.noLnurlFound);
+    }
   }
 }
 
