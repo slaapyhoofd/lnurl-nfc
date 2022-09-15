@@ -1,6 +1,7 @@
 'use strict';
 
 import { bech32 } from 'bech32';
+import { TextDecoder } from 'util';
 
 export interface IPaymentResult {
   success: boolean;
@@ -24,7 +25,8 @@ export class NFCReader {
     // Checks if Web NFC is present
     if ('NDEFReader' in window) {
       this.available = true;
-      this.ndefReader = new NDEFReader();
+      // @ts-ignore
+      this.ndefReader = new window.NDEFReader();
     } else {
       this.available = false;
     }
