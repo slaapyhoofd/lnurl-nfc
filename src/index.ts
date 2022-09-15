@@ -86,51 +86,18 @@ export class NFCReader {
       return reject(ErrorReason.readingError);
     }
 
-    const decoder = new TextDecoder('utf-8');
     const alternatives: string[] = [];
-
     for (let record of event.message.records) {
       if (!record || !record.data) {
         continue;
       }
 
-      try {
-        const currentValue = decoder.decode(record.data);
-        const lowercase = currentValue.toLowerCase();
-        if (lowercase.startsWith('lightning:')) {
-          // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
-          const lnurl = currentValue.slice('lightning:'.length);
-          const decoded = bech32.decode(lnurl, 2000);
-          const bytes = bech32.fromWords(decoded.words);
-          const result = decoder.decode(new Uint8Array(bytes));
-
-          return resolve(result);
-        } else if (lowercase.startsWith('lnurlw://')) {
-          // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
-          let replaceWith = 'https://';
-          if (_isOnion(currentValue)) {
-            replaceWith = 'http://';
-          }
-
-          return resolve(replaceWith + currentValue.slice(9));
-        } else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
-          // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
-          const decoded = bech32.decode(currentValue, 2000);
-          const bytes = bech32.fromWords(decoded.words);
-          const result = decoder.decode(new Uint8Array(bytes));
-
-          return resolve(result);
-        } else if (lowercase.startsWith('https://')) {
-          // https:// might be the real deal. Add as alternative.
-          alternatives.push(currentValue);
-        } else if (lowercase.startsWith('http://')) {
-          // http:// might be the real deal if it's an onion. Add as alternative.
-          if (_isOnion(currentValue)) {
-            alternatives.push(currentValue);
-          }
-        }
-      } catch {
-        /* Squelch. Decoding error. Record is garbage. */
+      const decodeResult = _decodeLnurlRecord(record);
+      switch (decodeResult.isLnurl) {
+        case LnurlResult.Yes:
+          return resolve(decodeResult.lnurl);
+        case LnurlResult.Maybe:
+          alternatives.push(decodeResult.lnurl);
       }
     }
 
@@ -152,6 +119,134 @@ function _isOnion(potentialOnion: string) {
       lowercase.indexOf('.onion/') >= 0 ||
       lowercase.indexOf('.onion?') >= 0)
   );
+}
+
+function _decodeLnurlRecord(
+  record: NDEFRecord,
+): { isLnurl: LnurlResult.No } | { isLnurl: LnurlResult.Maybe | LnurlResult.Yes; lnurl: string } {
+  if (!record || !record.data) {
+    return {
+      isLnurl: LnurlResult.No,
+    };
+  }
+
+  const decoder = new TextDecoder(record.encoding ?? 'utf-8');
+  try {
+    const recordData = decoder.decode(record.data);
+    return decodeLnurl(recordData);
+  } catch (error) {
+    return {
+      isLnurl: LnurlResult.No,
+    };
+  }
+}
+
+export enum LnurlResult {
+  No,
+  Maybe,
+  Yes,
+}
+
+export function decodeLnurl(
+  lnurlCandidate: string,
+): { isLnurl: LnurlResult.No } | { isLnurl: LnurlResult.Maybe | LnurlResult.Yes; lnurl: string } {
+  if (!lnurlCandidate) {
+    return {
+      isLnurl: LnurlResult.No,
+    };
+  }
+
+  try {
+    const decoder = new TextDecoder('utf-8');
+    const lowercase = lnurlCandidate.toLowerCase();
+    if (lowercase.startsWith('lightning:')) {
+      // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
+      const lnurl = lnurlCandidate.slice('lightning:'.length);
+      const result = bech32Decode(lnurl);
+      if (isValidLnurl(result)) {
+        return {
+          isLnurl: LnurlResult.Yes,
+          lnurl: result,
+        };
+      }
+
+      return {
+        isLnurl: LnurlResult.No,
+      };
+    } else if (lowercase.startsWith('lnurlw://')) {
+      // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
+      let replaceWith = 'https://';
+      if (_isOnion(lnurlCandidate)) {
+        replaceWith = 'http://';
+      }
+
+      return {
+        isLnurl: LnurlResult.Yes,
+        lnurl: replaceWith + lnurlCandidate.slice(9),
+      };
+    } else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
+      // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
+      const result = bech32Decode(lnurlCandidate);
+
+      if (isValidLnurl(result)) {
+        return {
+          isLnurl: LnurlResult.Yes,
+          lnurl: result,
+        };
+      }
+
+      return {
+        isLnurl: LnurlResult.No,
+      };
+    } else if (lowercase.startsWith('https://')) {
+      // https:// might be the real deal. Add as alternative.
+      return {
+        isLnurl: LnurlResult.Maybe,
+        lnurl: lnurlCandidate,
+      };
+    } else if (lowercase.startsWith('http://')) {
+      // http:// might be the real deal if it's an onion. Add as alternative.
+      if (_isOnion(lnurlCandidate)) {
+        return {
+          isLnurl: LnurlResult.Maybe,
+          lnurl: lnurlCandidate,
+        };
+      }
+
+      return {
+        isLnurl: LnurlResult.No,
+      };
+    }
+  } catch {
+    /* Squelch. Decoding error. Record is garbage. */
+  }
+
+  return {
+    isLnurl: LnurlResult.No,
+  };
+}
+
+export function isValidLnurl(lnurl: string): boolean {
+  if (!lnurl) {
+    return false;
+  }
+
+  if (lnurl.startsWith('https://')) {
+    return true;
+  }
+
+  if (lnurl.startsWith('http://') && _isOnion(lnurl)) {
+    return true;
+  }
+
+  return false;
+}
+
+export function bech32Decode(data: string) {
+  const decoder = new TextDecoder('utf-8');
+  const decoded = bech32.decode(data, 2000);
+  const bytes = bech32.fromWords(decoded.words);
+  return decoder.decode(new Uint8Array(bytes));
 }
 
 export async function handleLNURL(

@@ -9,8 +9,9 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handlePayment = exports.handleLNURL = exports.NFCReader = exports.ErrorReason = void 0;
+exports.handlePayment = exports.handleLNURL = exports.bech32Decode = exports.isValidLnurl = exports.decodeLnurl = exports.LnurlResult = exports.NFCReader = exports.ErrorReason = void 0;
 const bech32_1 = require("bech32");
+const util_1 = require("util");
 var ErrorReason;
 (function (ErrorReason) {
     ErrorReason[ErrorReason["unavailable"] = 0] = "unavailable";
@@ -25,7 +26,8 @@ class NFCReader {
         // Checks if Web NFC is present
         if ('NDEFReader' in window) {
             this.available = true;
-            this.ndefReader = new NDEFReader();
+            // @ts-ignore
+            this.ndefReader = new window.NDEFReader();
         }
         else {
             this.available = false;
@@ -76,51 +78,17 @@ class NFCReader {
             !Array.isArray(event.message.records)) {
             return reject(ErrorReason.readingError);
         }
-        const decoder = new TextDecoder('utf-8');
         const alternatives = [];
         for (let record of event.message.records) {
             if (!record || !record.data) {
                 continue;
             }
-            try {
-                const currentValue = decoder.decode(record.data);
-                const lowercase = currentValue.toLowerCase();
-                if (lowercase.startsWith('lightning:')) {
-                    // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
-                    const lnurl = currentValue.slice('lightning:'.length);
-                    const decoded = bech32_1.bech32.decode(lnurl, 2000);
-                    const bytes = bech32_1.bech32.fromWords(decoded.words);
-                    const result = decoder.decode(new Uint8Array(bytes));
-                    return resolve(result);
-                }
-                else if (lowercase.startsWith('lnurlw://')) {
-                    // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
-                    let replaceWith = 'https://';
-                    if (_isOnion(currentValue)) {
-                        replaceWith = 'http://';
-                    }
-                    return resolve(replaceWith + currentValue.slice(9));
-                }
-                else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
-                    // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
-                    const decoded = bech32_1.bech32.decode(currentValue, 2000);
-                    const bytes = bech32_1.bech32.fromWords(decoded.words);
-                    const result = decoder.decode(new Uint8Array(bytes));
-                    return resolve(result);
-                }
-                else if (lowercase.startsWith('https://')) {
-                    // https:// might be the real deal. Add as alternative.
-                    alternatives.push(currentValue);
-                }
-                else if (lowercase.startsWith('http://')) {
-                    // http:// might be the real deal if it's an onion. Add as alternative.
-                    if (_isOnion(currentValue)) {
-                        alternatives.push(currentValue);
-                    }
-                }
-            }
-            catch (_a) {
-                /* Squelch. Decoding error. Record is garbage. */
+            const decodeResult = _decodeLnurlRecord(record);
+            switch (decodeResult.isLnurl) {
+                case LnurlResult.Yes:
+                    return resolve(decodeResult.lnurl);
+                case LnurlResult.Maybe:
+                    alternatives.push(decodeResult.lnurl);
             }
         }
         // Apparently there was no good lnurl match in the ndef records array.
@@ -139,6 +107,125 @@ function _isOnion(potentialOnion) {
             lowercase.indexOf('.onion/') >= 0 ||
             lowercase.indexOf('.onion?') >= 0));
 }
+function _decodeLnurlRecord(record) {
+    var _a;
+    if (!record || !record.data) {
+        return {
+            isLnurl: LnurlResult.No,
+        };
+    }
+    const decoder = new util_1.TextDecoder((_a = record.encoding) !== null && _a !== void 0 ? _a : 'utf-8');
+    try {
+        const recordData = decoder.decode(record.data);
+        return decodeLnurl(recordData);
+    }
+    catch (error) {
+        return {
+            isLnurl: LnurlResult.No,
+        };
+    }
+}
+var LnurlResult;
+(function (LnurlResult) {
+    LnurlResult[LnurlResult["No"] = 0] = "No";
+    LnurlResult[LnurlResult["Maybe"] = 1] = "Maybe";
+    LnurlResult[LnurlResult["Yes"] = 2] = "Yes";
+})(LnurlResult = exports.LnurlResult || (exports.LnurlResult = {}));
+function decodeLnurl(lnurlCandidate) {
+    if (!lnurlCandidate) {
+        return {
+            isLnurl: LnurlResult.No,
+        };
+    }
+    try {
+        const decoder = new util_1.TextDecoder('utf-8');
+        const lowercase = lnurlCandidate.toLowerCase();
+        if (lowercase.startsWith('lightning:')) {
+            // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
+            const lnurl = lnurlCandidate.slice('lightning:'.length);
+            const result = bech32Decode(lnurl);
+            if (isValidLnurl(result)) {
+                return {
+                    isLnurl: LnurlResult.Yes,
+                    lnurl: result,
+                };
+            }
+            return {
+                isLnurl: LnurlResult.No,
+            };
+        }
+        else if (lowercase.startsWith('lnurlw://')) {
+            // Is a new age lnurlw. Replace lnurlw with https, or http if it's an onion.
+            let replaceWith = 'https://';
+            if (_isOnion(lnurlCandidate)) {
+                replaceWith = 'http://';
+            }
+            return {
+                isLnurl: LnurlResult.Yes,
+                lnurl: replaceWith + lnurlCandidate.slice(9),
+            };
+        }
+        else if (lowercase.startsWith('lnurl') && lowercase.indexOf(':') === -1) {
+            // Might be lnurl without 'lightning:' prefix. If decoding with bech32 works, use that.
+            const result = bech32Decode(lnurlCandidate);
+            if (isValidLnurl(result)) {
+                return {
+                    isLnurl: LnurlResult.Yes,
+                    lnurl: result,
+                };
+            }
+            return {
+                isLnurl: LnurlResult.No,
+            };
+        }
+        else if (lowercase.startsWith('https://')) {
+            // https:// might be the real deal. Add as alternative.
+            return {
+                isLnurl: LnurlResult.Maybe,
+                lnurl: lnurlCandidate,
+            };
+        }
+        else if (lowercase.startsWith('http://')) {
+            // http:// might be the real deal if it's an onion. Add as alternative.
+            if (_isOnion(lnurlCandidate)) {
+                return {
+                    isLnurl: LnurlResult.Maybe,
+                    lnurl: lnurlCandidate,
+                };
+            }
+            return {
+                isLnurl: LnurlResult.No,
+            };
+        }
+    }
+    catch (_a) {
+        /* Squelch. Decoding error. Record is garbage. */
+    }
+    return {
+        isLnurl: LnurlResult.No,
+    };
+}
+exports.decodeLnurl = decodeLnurl;
+function isValidLnurl(lnurl) {
+    if (!lnurl) {
+        return false;
+    }
+    if (lnurl.startsWith('https://')) {
+        return true;
+    }
+    if (lnurl.startsWith('http://') && _isOnion(lnurl)) {
+        return true;
+    }
+    return false;
+}
+exports.isValidLnurl = isValidLnurl;
+function bech32Decode(data) {
+    const decoder = new util_1.TextDecoder('utf-8');
+    const decoded = bech32_1.bech32.decode(data, 2000);
+    const bytes = bech32_1.bech32.fromWords(decoded.words);
+    return decoder.decode(new Uint8Array(bytes));
+}
+exports.bech32Decode = bech32Decode;
 function handleLNURL(lnurl, invoice, proxy) {
     return __awaiter(this, void 0, void 0, function* () {
         try {
