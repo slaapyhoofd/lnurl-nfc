@@ -1,4 +1,4 @@
-import { decodeLnurl, ErrorReason, LnurlResult, NFCReader } from '../src/index';
+import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, NFCReader } from '../src/index';
 import { TextEncoder } from 'util';
 
 describe('decodeLnurl', () => {
@@ -423,8 +423,24 @@ describe('listen', () => {
     return expect(reader.listen()).rejects.toBe(ErrorReason.unavailable);
   });
 
+  test('Should reject with whatever is thrown if scan throws another error', () => {
+    const ex = new DOMException('', 'Something else');
+    scanMock.mockRejectedValue(ex);
+    const reader = new NFCReader();
+    return expect(reader.listen()).rejects.toBe(ex);
+  });
+
   test('Should reject with readingError on readingerror', () => {
     onSetReadingErrorMock.mockImplementation((func) => func());
+    const reader = new NFCReader();
+    return expect(reader.listen()).rejects.toBe(ErrorReason.readingError);
+  });
+
+  test('Should reject with readingError if malformed message', () => {
+    const ndefReadingEvent = { message: {} };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
     const reader = new NFCReader();
     return expect(reader.listen()).rejects.toBe(ErrorReason.readingError);
   });
@@ -450,6 +466,18 @@ describe('listen', () => {
     expect(result).toBe(url);
   });
 
+  test('Should return found lnurlw', async () => {
+    const url = 'lnurlw://bitcoin.org';
+    const binary = new TextEncoder().encode(url);
+    const ndefReadingEvent = { message: { records: [{ data: binary }] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new NFCReader();
+    const result = await reader.listen();
+    expect(result).toBe('https://bitcoin.org');
+  });
+
   test('Should return lnurl if it is in second record', async () => {
     const url = 'https://bitcoin.org';
     const binary = new TextEncoder().encode(url);
@@ -471,5 +499,217 @@ describe('listen', () => {
     });
     const reader = new NFCReader();
     return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+  });
+
+  test('Should reject with noLnurlFound if record is garbage', async () => {
+    const binary = new Uint8Array([0, 18, 2, 255, 65, 1, 99, 3, 2]);
+    const ndefReadingEvent = { message: { records: [{ data: binary }] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new NFCReader();
+    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+  });
+
+  test('Should reject with noLnurlFound if record is empty', async () => {
+    const url = ''; // http is not valid, should be https.
+    const binary = new TextEncoder().encode(url);
+    const ndefReadingEvent = { message: { records: [{ data: binary }] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new NFCReader();
+    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+  });
+});
+
+describe('handleLnurl', () => {
+  let fetchMock: jest.Mock;
+  const proxyUrl = 'https://bitkassa.nl/proxy';
+  const invoice = 'asdf';
+  const url = 'https://bitcoin.org/lnurlw';
+  beforeEach(() => {
+    fetchMock = jest.fn();
+    global.fetch = fetchMock;
+  });
+
+  afterEach(() => {
+    fetchMock.mockClear();
+  });
+
+  test('Should call proxy with url encoded url in querystring', async () => {
+    await handleLNURL(url, invoice, proxyUrl);
+    expect(fetchMock).toBeCalledTimes(1);
+    expect(fetchMock).toBeCalledWith(
+      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fbitcoin.org%2Flnurlw',
+    );
+  });
+
+  test('Should return success false if fetch rejects', async () => {
+    fetchMock.mockRejectedValue(new Error('oops'));
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if json rejects', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockRejectedValue(new Error('oops')),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if json is not according to spec', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockResolvedValue({ something: 'else' }),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+  });
+
+  test('Should return success false if status error is returned', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'oops' }),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if status error is returned without reason', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockResolvedValue({ status: 'ERROR' }),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: undefined });
+  });
+
+  test('Should return success false if status OK but no callback', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockResolvedValue({ status: 'OK', k1: '1234' }),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+  });
+
+  test('Should return success false if status OK but no k1', async () => {
+    fetchMock.mockResolvedValue({
+      json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback' }),
+    });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+  });
+
+  test('Should call the right url when callback without querystring', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+    });
+    await handleLNURL(url, invoice, proxyUrl);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fk1%3D1234%26pr%3Dasdf',
+    );
+  });
+
+  test('Should call the right url when callback with querystring', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest
+        .fn()
+        .mockResolvedValue({ status: 'OK', callback: 'https://callback?some=query', k1: '1234' }),
+    });
+    await handleLNURL(url, invoice, proxyUrl);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fsome%3Dquery%26k1%3D1234%26pr%3Dasdf',
+    );
+  });
+
+  test('Should strip lightning: from invoice', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+    });
+    await handleLNURL(url, 'lightning:asdf', proxyUrl);
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fk1%3D1234%26pr%3Dasdf',
+    );
+  });
+
+  test('Should return success false if second fetch throws', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockRejectedValueOnce(new Error('oops'));
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if second fetch json throws', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn().mockRejectedValue(new Error('oops')),
+      });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if second response invalid', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({ something: 'else' }),
+      });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+  });
+
+  test('Should return success false if second status is error', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'oops' }),
+      });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: 'oops' });
+  });
+
+  test('Should return success false if second status is error without reason', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({ status: 'ERROR' }),
+      });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: false, message: undefined });
+  });
+
+  test('Should return success if second status OK', async () => {
+    fetchMock
+      .mockResolvedValueOnce({
+        json: jest
+          .fn()
+          .mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+      })
+      .mockResolvedValueOnce({
+        json: jest.fn().mockResolvedValue({ status: 'OK' }),
+      });
+    const result = await handleLNURL(url, invoice, proxyUrl);
+    expect(result).toStrictEqual({ success: true, message: 'invoice payment initiated' });
   });
 });

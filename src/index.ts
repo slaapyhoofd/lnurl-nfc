@@ -132,7 +132,7 @@ function _decodeLnurlRecord(
     };
   }
 
-  const decoder = new TextDecoder(record.encoding ?? 'utf-8');
+  const decoder = new TextDecoder(record.encoding ?? 'utf-8', { fatal: true });
   try {
     const recordData = decoder.decode(record.data);
     return decodeLnurl(recordData);
@@ -159,7 +159,6 @@ export function decodeLnurl(
   }
 
   try {
-    const decoder = new TextDecoder('utf-8');
     const lowercase = lnurlCandidate.toLowerCase();
     if (lowercase.startsWith('lightning:')) {
       // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
@@ -245,7 +244,7 @@ export function isValidLnurl(lnurl: string): boolean {
 }
 
 export function bech32Decode(data: string) {
-  const decoder = new TextDecoder('utf-8');
+  const decoder = new TextDecoder('utf-8', { fatal: true });
   const decoded = bech32.decode(data, 2000);
   const bytes = bech32.fromWords(decoded.words);
   return decoder.decode(new Uint8Array(bytes));
@@ -296,9 +295,8 @@ export async function handlePayment(
       'lightning:',
       '',
     )}`;
-    const paymentResult = await (
-      await fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`)
-    ).json();
+    const response = await fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`);
+    const paymentResult = await response.json();
 
     if (paymentResult.status === 'OK') {
       return {
@@ -316,7 +314,7 @@ export async function handlePayment(
 
     return {
       success: false,
-      message: 'Invalid reponse',
+      message: 'invalid response',
     };
   } catch (e: any) {
     return {

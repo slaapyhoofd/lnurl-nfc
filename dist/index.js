@@ -114,7 +114,7 @@ function _decodeLnurlRecord(record) {
             isLnurl: LnurlResult.No,
         };
     }
-    const decoder = new util_1.TextDecoder((_a = record.encoding) !== null && _a !== void 0 ? _a : 'utf-8');
+    const decoder = new util_1.TextDecoder((_a = record.encoding) !== null && _a !== void 0 ? _a : 'utf-8', { fatal: true });
     try {
         const recordData = decoder.decode(record.data);
         return decodeLnurl(recordData);
@@ -138,7 +138,6 @@ function decodeLnurl(lnurlCandidate) {
         };
     }
     try {
-        const decoder = new util_1.TextDecoder('utf-8');
         const lowercase = lnurlCandidate.toLowerCase();
         if (lowercase.startsWith('lightning:')) {
             // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
@@ -220,7 +219,7 @@ function isValidLnurl(lnurl) {
 }
 exports.isValidLnurl = isValidLnurl;
 function bech32Decode(data) {
-    const decoder = new util_1.TextDecoder('utf-8');
+    const decoder = new util_1.TextDecoder('utf-8', { fatal: true });
     const decoded = bech32_1.bech32.decode(data, 2000);
     const bytes = bech32_1.bech32.fromWords(decoded.words);
     return decoder.decode(new Uint8Array(bytes));
@@ -260,7 +259,8 @@ function handlePayment(callback, k1, invoice, proxy) {
         try {
             const separator = callback.indexOf('?') === -1 ? '?' : '&';
             const paymentRequest = `${callback}${separator}k1=${k1}&pr=${invoice.replace('lightning:', '')}`;
-            const paymentResult = yield (yield fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`)).json();
+            const response = yield fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`);
+            const paymentResult = yield response.json();
             if (paymentResult.status === 'OK') {
                 return {
                     success: true,
@@ -275,7 +275,7 @@ function handlePayment(callback, k1, invoice, proxy) {
             }
             return {
                 success: false,
-                message: 'Invalid reponse',
+                message: 'invalid response',
             };
         }
         catch (e) {
