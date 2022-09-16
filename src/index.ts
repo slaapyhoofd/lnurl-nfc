@@ -16,29 +16,149 @@ export enum ErrorReason {
   noLnurlFound,
 }
 
-export class NFCReader {
-  private readonly available: boolean;
-  private readonly ndefReader: NDEFReader | undefined;
+export class LnurlReader {
+  private readonly ndefReader?: NDEFReader;
+  private abortController?: AbortController;
+  private listening: boolean = false;
 
-  constructor() {
+  constructor(
+    onLnurlRead?: (lnurl: string) => void | Promise<void>,
+    onReadingError?: (error: ErrorReason, detail?: Event) => void | Promise<void>) {
     // Checks if Web NFC is present
     if ('NDEFReader' in window) {
-      this.available = true;
       // @ts-ignore
       this.ndefReader = new window.NDEFReader();
-    } else {
-      this.available = false;
     }
+
+    this.onLnurlRead = onLnurlRead;
+    this.onReadingError = onReadingError;
   }
 
-  public async listen(signal?: AbortSignal): Promise<string> {
-    if (!this.available || !this.ndefReader) {
+  /**
+   * Gets a value indicating whether NFC is available in the browser.
+   */
+  public get isAvailable() : boolean { 
+    return !!this.ndefReader; 
+  }
+
+  /**
+   * Gets a value indicating whether the reader is currently listening for NFC tags.
+   */
+  public get isListening() : boolean { 
+    return this.listening; 
+  }
+
+  /**
+   * onLnurlRead is called with an lnurl string when a valid lnurl string is found in an NFC tag.
+   */
+  public onLnurlRead?: (lnurl: string) => void | Promise<void>;
+
+  /**
+   * onReadingError is called with an errorcode and optional detail when a reading error occurs.
+   * For example when the card is invalid or doesn't contain an lnurl.
+   */
+  public onReadingError?: (error: ErrorReason, detail?: Event) => void | Promise<void>;
+
+  /**
+   * listenOnce tries to read an lnurl from a card once. Stops listening after the card is read,
+   * or if a reading error occurs. If onLnurlRead or onReadingError are set, they are also invoked
+   * before the Promise resolves. 
+   * @param signal optional {AbortSignal}
+   * @returns The read lnurl
+   * @reject {ErrorReason} When a reading error or permission error occurs
+   * @reject {Object} When a downstream error is unhandled. (Should not happen really)
+   */
+  public async listenOnce(signal?: AbortSignal) : Promise<string> {
+    // Save the callbacks, so we can restore them later.
+    const existingOnLnurlRead = this.onLnurlRead;
+    const existingOnReadingError = this.onReadingError;
+    const wasListening = this.listening;
+
+    const done = () => {
+      if (!wasListening) { 
+        // Make sure to stop listening for NFC cards if we weren't listening before.
+        this.stopListening(); 
+      }
+
+      // Restore callbacks.
+      this.onLnurlRead = existingOnLnurlRead;
+      this.onReadingError = existingOnReadingError;
+    };
+
+    return new Promise(async (resolve, reject) => {
+      // When lnurl is read, invoke the existing callback, then stop and resolve.
+      this.onLnurlRead = (lnurl) => {
+        if (existingOnLnurlRead) {
+          existingOnLnurlRead(lnurl);
+        }
+
+        done();
+        resolve(lnurl);
+      };
+
+      // When reading error occurs, invoke the existing callback, then stop and reject.
+      this.onReadingError = (error, detail) => {
+        if (existingOnReadingError) {
+          existingOnReadingError(error, detail);
+        }
+
+        done();
+        reject(error);
+      }
+
+      // When aborted, stop and reject
+      if (signal) {
+        signal.onabort = () => {
+          done();
+          reject(ErrorReason.aborted);
+        }
+      }
+
+      // Callbacks are in place, start listening.
+      if (!wasListening) { 
+        try {
+          await this.startListening(signal);
+        } catch (e) {
+          reject(e);
+        }
+      }
+    });
+  }
+
+  /**
+   * startListening starts listening for NFC tags. When an lnurl is read on
+   * a tag, onLnurlRead is invoked. When a reading error occurs, onReadingError
+   * is invoked. 
+   * @param signal optional {AbortSignal} to stop listening.
+   * @returns A promise that resolves when the listening succesfully started.
+   * @reject {ErrorReason} When there are permission issues or NFC is not available
+   * @reject {Object} When there is an unhandled downstream error that makes it unable to listen.
+   */
+  public async startListening(signal?: AbortSignal) : Promise<void> {
+    // exit early if NFC is unavailable
+    if (!this.ndefReader) {
       return Promise.reject(ErrorReason.unavailable);
     }
 
+    // If listening already exit early.
+    if (this.listening) {
+      return;
+    }
+    
     try {
-      await this.ndefReader.scan(signal === undefined ? undefined : { signal });
+      // Initialize an AbortController so stopListening can use it.
+      this.abortController = new AbortController();
+
+      if (signal) {
+        // If an AbortSignal is passed in, cascade to internal controller.
+        signal.onabort = (event) => this._abort(event);
+      }
+
+      // Start the scanning. Returns almost immediately, or throws.
+      await this.ndefReader.scan({signal: this.abortController.signal});
+      this.listening = true;
     } catch (e) {
+      // Handle documented errors
       if (e instanceof DOMException && !!e.name) {
         switch (e.name) {
           case 'AbortError':
@@ -52,42 +172,64 @@ export class NFCReader {
         }
       }
 
-      throw e;
+      // Undocumented error
+      return Promise.reject(e);
     }
 
-    return new Promise((resolve, reject) => {
-      if (!this.ndefReader) {
-        return reject(ErrorReason.unavailable);
-      }
-
-      if (signal !== undefined) {
-        signal.onabort = () => reject(ErrorReason.aborted);
-      }
-
-      this.ndefReader.onreadingerror = () => this._onReadingError(reject);
-      this.ndefReader.onreading = (event) => this._onReading(event, resolve, reject);
-    });
+    // Hook up eventhandlers to lnurl parser and callbacks.
+    this.ndefReader.onreadingerror = (event) => this._onReadingError(event);
+    this.ndefReader.onreading = (event) => this._onReading(event);
   }
 
-  _onReadingError(reject: (reason: ErrorReason) => void) {
-    return reject(ErrorReason.readingError);
+  /**
+   * stopListening stops listening to NFC tags. Can be called many times.
+   */
+  public stopListening() : void {
+    this._abort(ErrorReason.aborted);
   }
 
-  _onReading(
+  /**
+   * Aborts the underlying scan call, and sets listening to false.
+   * @param reason 
+   */
+  private _abort(reason: any) {
+    this.abortController?.abort(reason);
+    this.listening = false;
+  }
+
+  /**
+   * Invokes the onReadingError callback.
+   * @param event optional event with additional error data.
+   */
+  private _onReadingError(event: Event) {
+    if (this.onReadingError) {
+      this.onReadingError(ErrorReason.readingError, event);
+    }
+  }
+
+  /**
+   * Parses the read NFC tag. If a valid lnurl is found, onLnurlRead is invoked.
+   * If no valid lnurl is found onReadingError is invoked.
+   * @param event NFC tag.
+   */
+  private _onReading(
     event: NDEFReadingEvent,
-    resolve: (value: string) => void,
-    reject: (reason: ErrorReason) => void,
-  ) {
+  ) : void {
     if (
       !event ||
       !event.message ||
       !event.message.records ||
       !Array.isArray(event.message.records)
     ) {
-      return reject(ErrorReason.readingError);
+      this._onReadingError(event);
+      return;
     }
 
+    // If something that might be an lnurl record is found, but is not obviously an 
+    // lnurl record, it's stored here. Like a plain https link.
     const alternatives: string[] = [];
+
+    // Check every ndef record.
     for (let record of event.message.records) {
       if (!record || !record.data) {
         continue;
@@ -96,23 +238,44 @@ export class NFCReader {
       const decodeResult = _decodeLnurlRecord(record);
       switch (decodeResult.isLnurl) {
         case LnurlResult.Yes:
-          return resolve(decodeResult.lnurl);
+          // Invoke the callback if it's definitely an lnurl
+          if (this.onLnurlRead) {
+            this.onLnurlRead(decodeResult.lnurl);
+          }
+          return;
         case LnurlResult.Maybe:
+          // Store potential lnurl for later.
           alternatives.push(decodeResult.lnurl);
+          break;
       }
     }
 
     // Apparently there was no good lnurl match in the ndef records array.
-    // Maybe there was a less obvious match. If so, return that.
+    // Maybe there was a less obvious match. If so, call the callback with that.
     if (alternatives.length > 0) {
-      return resolve(alternatives[0]);
+      if (this.onLnurlRead) {
+        this.onLnurlRead(alternatives[0]);
+      }
+      return;
     }
 
-    return reject(ErrorReason.noLnurlFound);
+    // Nothing was found, notify.
+    if (this.onReadingError) {
+      this.onReadingError(ErrorReason.noLnurlFound);
+    }
   }
 }
 
+/**
+ * Utility method to check whether the string is an onion link.
+ * @param potentialOnion potential onion link.
+ * @returns 
+ */
 function _isOnion(potentialOnion: string) {
+  if (!potentialOnion) {
+    return false;
+  }
+
   const lowercase = potentialOnion.toLowerCase();
   return (
     lowercase &&
@@ -122,6 +285,11 @@ function _isOnion(potentialOnion: string) {
   );
 }
 
+/**
+ * Decodes any kind of lnurl record
+ * @param record The record to decode.
+ * @returns Value indicating whether this is an lnurl, and if so (or maybe), return the lnurl with it.
+ */
 function _decodeLnurlRecord(
   record: NDEFRecord,
 ): { isLnurl: LnurlResult.No } | { isLnurl: LnurlResult.Maybe | LnurlResult.Yes; lnurl: string } {
@@ -131,6 +299,7 @@ function _decodeLnurlRecord(
     };
   }
 
+  // Handle weird encodings graciously.
   const decoder = new TextDecoder(record.encoding ?? 'utf-8', { fatal: true });
   try {
     const recordData = decoder.decode(record.data);
@@ -142,12 +311,27 @@ function _decodeLnurlRecord(
   }
 }
 
+/**
+ * Value indicating whether a string is an lnurl link.
+ */
 export enum LnurlResult {
   No,
   Maybe,
   Yes,
 }
 
+/**
+ * Decodes an lnurl string into a usable link.
+ * https://bitcoin.org -> https://bitcoin.org
+ * lnurlw://bitcoin.org -> https://bitcoin.org
+ * lnurlw://bitcoin.onion -> http://bitcoin.onion
+ * lightning:LNURL1DP68GURN8GHJ7CNFW33K76TW9EHHYECRU2TLH -> https://bitcoin.org
+ * LIGHTNING:LNURL1DP68GURN8GHJ7CNFW33K76TW9EHHYECRU2TLH -> https://bitcoin.org
+ * lightning:lnurl1dp68gurn8ghj7cnfw33k76tw9ehhyecru2tlh -> https://bitcoin.org
+ * LIGHTNING:lnurl1dp68gurn8ghj7cnfw33k76tw9ehhyecru2tlh -> https://bitcoin.org
+ * @param lnurlCandidate The lnurl string to decode.
+ * @returns Value indicating whether the string is an lnurl, and if so (or maybe) returns the usable link.
+ */
 export function decodeLnurl(
   lnurlCandidate: string,
 ): { isLnurl: LnurlResult.No } | { isLnurl: LnurlResult.Maybe | LnurlResult.Yes; lnurl: string } {
@@ -226,7 +410,8 @@ export function decodeLnurl(
   };
 }
 
-export function isValidLnurl(lnurl: string): boolean {
+
+function isValidLnurl(lnurl: string): boolean {
   if (!lnurl) {
     return false;
   }

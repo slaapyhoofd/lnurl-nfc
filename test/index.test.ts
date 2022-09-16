@@ -1,4 +1,4 @@
-import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, NFCReader } from '../src/index';
+import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, LnurlReader } from '../src/index';
 import { TextEncoder, TextDecoder } from 'util'
 
 // ref: https://jestjs.io/docs/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
@@ -372,7 +372,7 @@ describe('decodeLnurl', () => {
   });
 });
 
-describe('listen', () => {
+describe('listenOnce', () => {
   let windowSpy: jest.SpyInstance;
   let scanMock: jest.Mock;
   let onSetReadingMock: jest.Mock;
@@ -406,45 +406,45 @@ describe('listen', () => {
 
   test('Should reject with unavailable if ndefreader not in window', () => {
     windowSpy.mockImplementation(() => ({}));
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.unavailable);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.unavailable);
   });
 
   test('Should reject with aborted if scan throws with AbortedError', () => {
     scanMock.mockRejectedValue(new DOMException('', 'AbortError'));
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.aborted);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.aborted);
   });
 
   test('Should reject with scanInProgress if scan throws with InvalidStateError', () => {
     scanMock.mockRejectedValue(new DOMException('', 'InvalidStateError'));
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.scanInProgress);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.scanInProgress);
   });
 
   test('Should reject with permissionDenied if scan throws with NotAllowedError', () => {
     scanMock.mockRejectedValue(new DOMException('', 'NotAllowedError'));
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.permissionDenied);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.permissionDenied);
   });
 
   test('Should reject with unavailable if scan throws with NotSupportedError', () => {
     scanMock.mockRejectedValue(new DOMException('', 'NotSupportedError'));
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.unavailable);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.unavailable);
   });
 
   test('Should reject with whatever is thrown if scan throws another error', () => {
     const ex = new DOMException('', 'Something else');
     scanMock.mockRejectedValue(ex);
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ex);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ex);
   });
 
   test('Should reject with readingError on readingerror', () => {
     onSetReadingErrorMock.mockImplementation((func) => func());
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.readingError);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.readingError);
   });
 
   test('Should reject with readingError if malformed message', () => {
@@ -452,8 +452,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.readingError);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.readingError);
   });
 
   test('Should reject with noLnurlFound if no records in the message', () => {
@@ -461,8 +461,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.noLnurlFound);
   });
 
   test('Should return found lnurl', async () => {
@@ -472,8 +472,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    const result = await reader.listen();
+    const reader = new LnurlReader();
+    const result = await reader.listenOnce();
     expect(result).toBe(url);
   });
 
@@ -484,8 +484,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    const result = await reader.listen();
+    const reader = new LnurlReader();
+    const result = await reader.listenOnce();
     expect(result).toBe('https://bitcoin.org');
   });
 
@@ -496,8 +496,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    const result = await reader.listen();
+    const reader = new LnurlReader();
+    const result = await reader.listenOnce();
     expect(result).toBe(url);
   });
 
@@ -508,8 +508,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.noLnurlFound);
   });
 
   test('Should reject with noLnurlFound if record is garbage', async () => {
@@ -518,8 +518,8 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.noLnurlFound);
   });
 
   test('Should reject with noLnurlFound if record is empty', async () => {
@@ -529,10 +529,205 @@ describe('listen', () => {
     onSetReadingMock.mockImplementation((callback) => {
       callback(ndefReadingEvent);
     });
-    const reader = new NFCReader();
-    return expect(reader.listen()).rejects.toBe(ErrorReason.noLnurlFound);
+    const reader = new LnurlReader();
+    return expect(reader.listenOnce()).rejects.toBe(ErrorReason.noLnurlFound);
   });
 });
+
+describe('startListening', () => {
+  let windowSpy: jest.SpyInstance;
+  let scanMock: jest.Mock;
+  let onSetReadingMock: jest.Mock;
+  let onSetReadingErrorMock: jest.Mock;
+  beforeEach(() => {
+    onSetReadingMock = jest.fn().mockImplementation((func) => {});
+    onSetReadingErrorMock = jest.fn().mockImplementation((func) => {});
+    scanMock = jest.fn().mockImplementation(() => Promise.resolve());
+    const ndefReaderMockInstance = { scan: scanMock };
+    Object.defineProperty(ndefReaderMockInstance, 'onreading', {
+      set: (val) => onSetReadingMock(val),
+    });
+    Object.defineProperty(ndefReaderMockInstance, 'onreadingerror', {
+      set: (val) => onSetReadingErrorMock(val),
+    });
+
+    const originalWindow = { ...window };
+    windowSpy = jest.spyOn(global, 'window', 'get') as any;
+    windowSpy.mockImplementation(() => ({
+      ...originalWindow,
+      NDEFReader: jest.fn().mockImplementation(() => ndefReaderMockInstance),
+    }));
+  });
+
+  afterEach(() => {
+    windowSpy.mockRestore();
+    scanMock.mockRestore();
+    onSetReadingMock.mockRestore();
+    onSetReadingErrorMock.mockRestore();
+  });
+
+  test('Should reject with unavailable if ndefreader not in window', () => {
+    windowSpy.mockImplementation(() => ({}));
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ErrorReason.unavailable);
+  });
+
+  test('Should reject with aborted if scan throws with AbortedError', () => {
+    scanMock.mockRejectedValue(new DOMException('', 'AbortError'));
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ErrorReason.aborted);
+  });
+
+  test('Should reject with scanInProgress if scan throws with InvalidStateError', () => {
+    scanMock.mockRejectedValue(new DOMException('', 'InvalidStateError'));
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ErrorReason.scanInProgress);
+  });
+
+  test('Should reject with permissionDenied if scan throws with NotAllowedError', () => {
+    scanMock.mockRejectedValue(new DOMException('', 'NotAllowedError'));
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ErrorReason.permissionDenied);
+  });
+
+  test('Should reject with unavailable if scan throws with NotSupportedError', () => {
+    scanMock.mockRejectedValue(new DOMException('', 'NotSupportedError'));
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ErrorReason.unavailable);
+  });
+
+  test('Should reject with whatever is thrown if scan throws another error', () => {
+    const ex = new DOMException('', 'Something else');
+    scanMock.mockRejectedValue(ex);
+    const reader = new LnurlReader();
+    return expect(reader.startListening()).rejects.toBe(ex);
+  });
+
+  test('Should set isListening', async () => {
+    const reader = new LnurlReader();
+    expect(reader.isListening).toBe(false);
+    await reader.startListening();
+    expect(reader.isListening).toBe(true);
+    reader.stopListening();
+    expect(reader.isListening).toBe(false);
+  });
+
+  test('Should set isListening when aborted', async () => {
+    const abortController = new AbortController();
+    const reader = new LnurlReader();
+    await reader.startListening(abortController.signal);
+    expect(reader.isListening).toBe(true);
+    abortController.abort();
+    expect(reader.isListening).toBe(false);
+  });
+
+  test('Should abort downstream when aborted', async () => {
+    const abortController = new AbortController();
+    const reader = new LnurlReader();
+    await reader.startListening(abortController.signal);
+    abortController.abort();
+    const downstreamSignal = scanMock.mock.calls[0][0].signal;
+    expect(downstreamSignal.aborted).toBe(true);
+  });
+
+  test('Should abort downstream when stopped', async () => {
+    const reader = new LnurlReader();
+    await reader.startListening();
+    reader.stopListening();
+    const downstreamSignal = scanMock.mock.calls[0][0].signal;
+    expect(downstreamSignal.aborted).toBe(true);
+  });
+
+  test('Should invoke readingError on readingerror', async () => {
+    onSetReadingErrorMock.mockImplementation((func) => func());
+    const reader = new LnurlReader();
+    const onReadingError = jest.fn();
+    reader.onReadingError = onReadingError;
+    await reader.startListening();
+    expect(onReadingError).toHaveBeenCalledTimes(1);
+    expect(onReadingError).toHaveBeenCalledWith(ErrorReason.readingError, undefined);
+  });
+
+  test('Should invoke readingError on malformed message', async () => {
+    const ndefReadingEvent = { message: {} };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new LnurlReader();
+    const onReadingError = jest.fn();
+    reader.onReadingError = onReadingError;
+    await reader.startListening();
+    expect(onReadingError).toHaveBeenCalledTimes(1);
+    expect(onReadingError).toHaveBeenCalledWith(ErrorReason.readingError, ndefReadingEvent);
+  });
+
+  test('Should invoke readingError if no records in the message', async () => {
+    const ndefReadingEvent = { message: { records: [] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new LnurlReader();
+    const onReadingError = jest.fn();
+    reader.onReadingError = onReadingError;
+    await reader.startListening();
+    expect(onReadingError).toHaveBeenCalledTimes(1);
+    expect(onReadingError).toHaveBeenCalledWith(ErrorReason.noLnurlFound);
+  });
+
+  test('Should invoke onLnurlRead if lnurl found', async () => {
+    const url = 'https://bitcoin.org';
+    const binary = new TextEncoder().encode(url);
+    const ndefReadingEvent = { message: { records: [{ data: binary }] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new LnurlReader();
+    const onLnurlRead = jest.fn();
+    reader.onLnurlRead = onLnurlRead;
+    await reader.startListening();
+    expect(onLnurlRead).toHaveBeenCalledTimes(1);
+    expect(onLnurlRead).toHaveBeenCalledWith(url);
+  });
+
+  test('Should invoke onLnurlRead if lnurlw found', async () => {
+    const url = 'lnurlw://bitcoin.org';
+    const binary = new TextEncoder().encode(url);
+    const ndefReadingEvent = { message: { records: [{ data: binary }] } };
+    onSetReadingMock.mockImplementation((callback) => {
+      callback(ndefReadingEvent);
+    });
+    const reader = new LnurlReader();
+    const onLnurlRead = jest.fn();
+    reader.onLnurlRead = onLnurlRead;
+    await reader.startListening();
+    expect(onLnurlRead).toHaveBeenCalledTimes(1);
+    expect(onLnurlRead).toHaveBeenCalledWith('https://bitcoin.org');
+  });
+
+  test('Should invoke onLnurlRead twice if called twice', async () => {
+    const url1 = 'https://bitcoin.org';
+    const binary1 = new TextEncoder().encode(url1);
+    const ndefReadingEvent1 = { message: { records: [{ data: binary1 }] } };
+    const url2 = 'https://bitcoin.org/2';
+    const binary2 = new TextEncoder().encode(url2);
+    const ndefReadingEvent2 = { message: { records: [{ data: binary2 }] } };
+    let onReadingCallback = (a: any) => {};
+    onSetReadingMock.mockImplementation((callback) => {
+      onReadingCallback = callback;
+    });
+    const reader = new LnurlReader();
+    const onLnurlRead = jest.fn();
+    reader.onLnurlRead = onLnurlRead;
+    await reader.startListening();
+    expect(onReadingCallback).toBeDefined();
+    onReadingCallback(ndefReadingEvent1);
+    onReadingCallback(ndefReadingEvent2);
+    expect(onLnurlRead).toHaveBeenCalledTimes(2);
+    expect(onLnurlRead).toHaveBeenCalledWith('https://bitcoin.org');
+    expect(onLnurlRead).toHaveBeenCalledWith('https://bitcoin.org/2');
+  });
+});
+
 
 describe('handleLnurl', () => {
   let fetchMock: jest.Mock;
