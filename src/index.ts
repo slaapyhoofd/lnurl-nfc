@@ -1,7 +1,6 @@
 'use strict';
 
 import { bech32 } from 'bech32';
-import { TextDecoder } from 'util';
 
 export interface IPaymentResult {
   success: boolean;

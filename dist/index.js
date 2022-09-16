@@ -11,7 +11,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.handlePayment = exports.handleLNURL = exports.bech32Decode = exports.isValidLnurl = exports.decodeLnurl = exports.LnurlResult = exports.NFCReader = exports.ErrorReason = void 0;
 const bech32_1 = require("bech32");
-const util_1 = require("util");
 var ErrorReason;
 (function (ErrorReason) {
     ErrorReason[ErrorReason["unavailable"] = 0] = "unavailable";
@@ -114,7 +113,7 @@ function _decodeLnurlRecord(record) {
             isLnurl: LnurlResult.No,
         };
     }
-    const decoder = new util_1.TextDecoder((_a = record.encoding) !== null && _a !== void 0 ? _a : 'utf-8', { fatal: true });
+    const decoder = new TextDecoder((_a = record.encoding) !== null && _a !== void 0 ? _a : 'utf-8', { fatal: true });
     try {
         const recordData = decoder.decode(record.data);
         return decodeLnurl(recordData);
@@ -219,7 +218,7 @@ function isValidLnurl(lnurl) {
 }
 exports.isValidLnurl = isValidLnurl;
 function bech32Decode(data) {
-    const decoder = new util_1.TextDecoder('utf-8', { fatal: true });
+    const decoder = new TextDecoder('utf-8', { fatal: true });
     const decoded = bech32_1.bech32.decode(data, 2000);
     const bytes = bech32_1.bech32.fromWords(decoded.words);
     return decoder.decode(new Uint8Array(bytes));
