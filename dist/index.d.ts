@@ -28,7 +28,7 @@ export declare class LnurlReader {
      */
     onLnurlRead?: (lnurl: string) => void | Promise<void>;
     /**
-     * onReadingError is called with an errorcode and optional detail when a reading error occurs.
+     * onReadingError is called with an error code and optional detail when a reading error occurs.
      * For example when the card is invalid or doesn't contain an lnurl.
      */
     onReadingError?: (error: ErrorReason, detail?: Event) => void | Promise<void>;
@@ -47,7 +47,7 @@ export declare class LnurlReader {
      * a tag, onLnurlRead is invoked. When a reading error occurs, onReadingError
      * is invoked.
      * @param signal optional {AbortSignal} to stop listening.
-     * @returns A promise that resolves when the listening succesfully started.
+     * @returns A promise that resolves when the listening successfully started.
      * @reject {ErrorReason} When there are permission issues or NFC is not available
      * @reject {Object} When there is an unhandled downstream error that makes it unable to listen.
      */

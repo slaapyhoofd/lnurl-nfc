@@ -108,7 +108,7 @@ class LnurlReader {
      * a tag, onLnurlRead is invoked. When a reading error occurs, onReadingError
      * is invoked.
      * @param signal optional {AbortSignal} to stop listening.
-     * @returns A promise that resolves when the listening succesfully started.
+     * @returns A promise that resolves when the listening successfully started.
      * @reject {ErrorReason} When there are permission issues or NFC is not available
      * @reject {Object} When there is an unhandled downstream error that makes it unable to listen.
      */
@@ -192,7 +192,7 @@ class LnurlReader {
             this._onReadingError(event);
             return;
         }
-        // If something that might be an lnurl record is found, but is not obviously an 
+        // If something that might be an lnurl record is found, but is not obviously an
         // lnurl record, it's stored here. Like a plain https link.
         const alternatives = [];
         // Check every ndef record.
@@ -232,14 +232,14 @@ exports.LnurlReader = LnurlReader;
 /**
  * Utility method to check whether the string is an onion link.
  * @param potentialOnion potential onion link.
- * @returns
+ * @returns boolean indication if it is an onion link
  */
 function _isOnion(potentialOnion) {
     if (!potentialOnion) {
         return false;
     }
     const lowercase = potentialOnion.toLowerCase();
-    return (lowercase &&
+    return !!(lowercase &&
         (lowercase.endsWith('.onion') ||
             lowercase.indexOf('.onion/') >= 0 ||
             lowercase.indexOf('.onion?') >= 0));
@@ -298,7 +298,7 @@ function decodeLnurl(lnurlCandidate) {
     try {
         const lowercase = lnurlCandidate.toLowerCase();
         if (lowercase.startsWith('lightning:')) {
-            // Is an oldschool bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
+            // Is an old school bech32 encoded lnurlw, remove lightning: and bech32 decode the rest.
             const lnurl = lnurlCandidate.slice('lightning:'.length);
             const result = bech32Decode(lnurl);
             if (isValidLnurl(result)) {
@@ -370,10 +370,7 @@ function isValidLnurl(lnurl) {
     if (lnurl.startsWith('https://')) {
         return true;
     }
-    if (lnurl.startsWith('http://') && _isOnion(lnurl)) {
-        return true;
-    }
-    return false;
+    return lnurl.startsWith('http://') && _isOnion(lnurl);
 }
 function bech32Decode(data) {
     const decoder = new TextDecoder('utf-8', { fatal: true });
