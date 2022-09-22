@@ -1,16 +1,16 @@
 import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, LnurlReader } from '../src/index';
-import { TextEncoder, TextDecoder } from 'util'
+import { TextEncoder, TextDecoder } from 'util';
 
 // ref: https://jestjs.io/docs/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
 // ref: https://github.com/jsdom/jsdom/issues/2524
 Object.defineProperty(window, 'TextEncoder', {
   writable: true,
-  value: TextEncoder
-})
+  value: TextEncoder,
+});
 Object.defineProperty(window, 'TextDecoder', {
   writable: true,
-  value: TextDecoder
-})
+  value: TextDecoder,
+});
 
 describe('decodeLnurl', () => {
   describe('basecases', () => {
@@ -727,7 +727,6 @@ describe('startListening', () => {
     expect(onLnurlRead).toHaveBeenCalledWith('https://bitcoin.org/2');
   });
 });
-
 
 describe('handleLnurl', () => {
   let fetchMock: jest.Mock;
