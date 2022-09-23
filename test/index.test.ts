@@ -743,11 +743,24 @@ describe('handleLnurl', () => {
     fetchMock.mockClear();
   });
 
-  test('Should call proxy with url encoded url in querystring', async () => {
+  test('Should GET url directly if proxy is undefined', async () => {
+    await handleLNURL(url, invoice);
+    expect(fetchMock).toBeCalledTimes(1);
+    expect(fetchMock).toBeCalledWith(url);
+  });
+
+  test('Should POST to proxy with base64 encoded url in json body', async () => {
     await handleLNURL(url, invoice, proxyUrl);
     expect(fetchMock).toBeCalledTimes(1);
     expect(fetchMock).toBeCalledWith(
-      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fbitcoin.org%2Flnurlw',
+      'https://bitkassa.nl/proxy', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: url })
+      }
     );
   });
 
@@ -805,14 +818,39 @@ describe('handleLnurl', () => {
     expect(result).toStrictEqual({ success: false, message: 'invalid response' });
   });
 
+  test('Should call the right url when callback without querystring and no proxy', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+    });
+    await handleLNURL(url, invoice);
+    expect(fetchMock).toHaveBeenLastCalledWith('https://callback?k1=1234&pr=asdf');
+  });
+
   test('Should call the right url when callback without querystring', async () => {
     fetchMock.mockResolvedValueOnce({
       json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
     });
     await handleLNURL(url, invoice, proxyUrl);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fk1%3D1234%26pr%3Dasdf',
+      'https://bitkassa.nl/proxy', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' })
+      }
     );
+  });
+
+  test('Should call the right url when callback with querystring and no proxy', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest
+        .fn()
+        .mockResolvedValue({ status: 'OK', callback: 'https://callback?some=query', k1: '1234' }),
+    });
+    await handleLNURL(url, invoice);
+    expect(fetchMock).toHaveBeenLastCalledWith('https://callback?some=query&k1=1234&pr=asdf');
   });
 
   test('Should call the right url when callback with querystring', async () => {
@@ -823,8 +861,23 @@ describe('handleLnurl', () => {
     });
     await handleLNURL(url, invoice, proxyUrl);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fsome%3Dquery%26k1%3D1234%26pr%3Dasdf',
+      'https://bitkassa.nl/proxy', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: 'https://callback?some=query&k1=1234&pr=asdf' })
+      }
     );
+  });
+
+  test('Should strip lightning: from invoice with no proxy', async () => {
+    fetchMock.mockResolvedValueOnce({
+      json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
+    });
+    await handleLNURL(url, 'lightning:asdf');
+    expect(fetchMock).toHaveBeenLastCalledWith('https://callback?k1=1234&pr=asdf');
   });
 
   test('Should strip lightning: from invoice', async () => {
@@ -833,7 +886,14 @@ describe('handleLnurl', () => {
     });
     await handleLNURL(url, 'lightning:asdf', proxyUrl);
     expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy?url=https%3A%2F%2Fcallback%3Fk1%3D1234%26pr%3Dasdf',
+      'https://bitkassa.nl/proxy', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' })
+      }
     );
   });
 
