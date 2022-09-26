@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>lnurl-nfc</title>
+    <meta name="description" content="An lnurlw implementation for nfc cards." />
+    <meta name="author" content="Jesse de Wit" />
+
+    <meta property="og:title" content="lnurl-nfc" />
+    <meta property="og:type" content="website" />
+    <meta property="og:description" content="An lnurlw implementation for nfc cards." />
+  </head>
+
+  <body>
+    <h1>lnurl-nfc</h1>
+    <div>
+      <label for="invoice">Paste invoice to pay</label>
+      <input type="text" name="invoice" id="invoice" />
+    </div>
+    <div>
+      <button id="nfcButton" onclick="onClickNfcButton" style="display: none">Scan NFC</button>
+      <p id="nfcUnavailableText" style="display: none">
+        NFC is not available on this device. Try an Android device in a Chrome browser.
+      </p>
+    </div>
+    <div>
+      <h2>log</h2>
+      <div id="log"></div>
+    </div>
+  </body>
+</html>
