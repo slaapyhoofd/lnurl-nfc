@@ -100,5 +100,5 @@ export declare function decodeLnurl(lnurlCandidate: string): {
     lnurl: string;
 };
 export declare function bech32Decode(data: string): string;
-export declare function handleLNURL(lnurl: string, invoice: string, proxy: string): Promise<IPaymentResult>;
-export declare function handlePayment(callback: string, k1: string, invoice: string, proxy: string): Promise<IPaymentResult>;
+export declare function handleLNURL(lnurl: string, invoice: string, proxy?: string): Promise<IPaymentResult>;
+export declare function handlePayment(callback: string, k1: string, invoice: string, proxy?: string): Promise<IPaymentResult>;
