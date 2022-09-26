@@ -434,7 +434,7 @@ export async function handleLNURL(
   proxy?: string,
 ): Promise<IPaymentResult> {
   try {
-    const response = await _sendRequest(lnurl, proxy); 
+    const response = await _sendRequest(lnurl, proxy);
     const { callback, k1, reason, status } = await response.json();
 
     if (status === 'ERROR') {
@@ -465,8 +465,8 @@ export async function handleLNURL(
  * @param url The url to call
  * @param proxy Proxy to route the call in order to avoid CORS issues.
  * @returns Promise with the `fetch` response.
- */ 
-function _sendRequest(url: string, proxy?: string) : Promise<Response> {
+ */
+function _sendRequest(url: string, proxy?: string): Promise<Response> {
   if (!proxy) {
     return fetch(url);
   }
@@ -474,10 +474,10 @@ function _sendRequest(url: string, proxy?: string) : Promise<Response> {
   return fetch(proxy, {
     method: 'POST',
     headers: {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json'
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ url: url})
+    body: JSON.stringify({ url: url }),
   });
 }
 
@@ -494,7 +494,7 @@ export async function handlePayment(
       '',
     )}`;
     const response = await _sendRequest(paymentRequest, proxy);
-    const paymentResult = await response.json();  
+    const paymentResult = await response.json();
 
     if (paymentResult.status === 'OK') {
       return {

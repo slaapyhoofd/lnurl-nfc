@@ -1,28 +1,28 @@
 import { LnurlReader, ErrorReason, handleLNURL } from '../../src';
 
 log('initializing lnurl reader');
-var lnurlReader = new LnurlReader();
+const lnurlReader = new LnurlReader();
 
 // Register onLnurlRead callback for when we start listening.
 lnurlReader.onLnurlRead = async (lnurl) => {
   try {
     // Update UI that lnurl has successfully been read.
-    log(`lnurlw read succesfully: ${lnurl}`);
+    log(`lnurlw read successfully: ${lnurl}`);
 
     // Call the lnurlw flow
-    const invoice = document.getElementById('invoice')!['value'] as string;
+    const invoice = (document.getElementById('invoice') as HTMLInputElement)!.value;
     const result = await handleLNURL(lnurl, invoice, '/proxy');
     if (result.success) {
       log('lnurlw flow succeeded. Invoice should be paid shortly.');
     } else {
       log(`lnurlw flow failed. Reason: '${result.message}'`);
     }
-  } catch (e) {
+  } catch (e: any) {
     // Handle errors you caused in the code above (inside try)
     log(`error: ${e.message}`);
   }
 
-  nfcButton!.firstChild!['data'] = 'Still scanning...';
+  nfcButton!.textContent = 'Still scanning...';
 
   // Note that we're still scanning for nfc tags after we found one.
   // Calling lnurlReader.stopListening() will cause the nfc control to be
@@ -52,14 +52,14 @@ lnurlReader.onReadingError = (error, detail) => {
         );
         break;
     }
-  } catch (e) {
+  } catch (e: any) {
     // Handle errors you caused in the code above (inside try)
     log(
       `error handling the error. This is pretty bad. Developer: fix the example page please: ${e.message}`,
     );
   }
 
-  nfcButton!.firstChild!['data'] = 'Still scanning...';
+  nfcButton!.textContent = 'Still scanning...';
 
   // Note that we're still scanning for nfc tags after a reading error.
   // Calling lnurlReader.stopListening() will cause the nfc control to be
@@ -67,8 +67,8 @@ lnurlReader.onReadingError = (error, detail) => {
   // and another screen will probably show the reading error again.
 };
 
-var nfcButton = document.getElementById('nfcButton');
-var nfcUnavailableText = document.getElementById('nfcUnavailableText');
+const nfcButton = document.getElementById('nfcButton') as HTMLButtonElement;
+const nfcUnavailableText = document.getElementById('nfcUnavailableText');
 if (lnurlReader.isAvailable) {
   log('nfc is available');
   nfcButton!.removeAttribute('style');
@@ -83,24 +83,24 @@ if (lnurlReader.isAvailable) {
 async function onClickNfcButton() {
   try {
     log('checking nfc permissions');
-    nfcButton!.firstChild!['data'] = 'Scanning...';
+    nfcButton!.textContent = 'Scanning...';
     nfcButton!['disabled'] = true;
 
     // Start listening.
     // This call will show a permissions popup if needed.
     await lnurlReader.startListening();
     log('listening for nfc tags');
-  } catch (e) {
+  } catch (e: any) {
     // Errors could occur BEFORE we're actually listening.
 
     if (e in ErrorReason) {
       switch (e) {
         case ErrorReason.unavailable:
-          nfcButton!.firstChild!['data'] = 'Unavailable';
+          nfcButton!.textContent = 'Unavailable';
           log('Turns out nfc is unavailable after all.');
           break;
         case ErrorReason.aborted:
-          nfcButton!.firstChild!['data'] = 'Scan NFC';
+          nfcButton!.textContent = 'Scan NFC';
           nfcButton!['disabled'] = false;
           log('Scan was aborted for some reason. Try scanning again?');
           break;
@@ -108,12 +108,12 @@ async function onClickNfcButton() {
           log('An nfc scan was already in progress. Must be a bug in the button update flow.');
           break;
         case ErrorReason.permissionDenied:
-          nfcButton!.firstChild!['data'] = 'Scan NFC';
+          nfcButton!.textContent = 'Scan NFC';
           nfcButton!['disabled'] = false;
           log('Permission to read nfc was denied. Check nfc settings for this website.');
           break;
         default:
-          nfcButton!.firstChild!['data'] = 'Scan NFC';
+          nfcButton!.textContent = 'Scan NFC';
           nfcButton!['disabled'] = false;
           log(
             `We did not handle this error case. Example should be updated: Error reason ${ErrorReason[e]}`,
@@ -121,15 +121,15 @@ async function onClickNfcButton() {
           break;
       }
     } else {
-      nfcButton!.firstChild!['data'] = 'Scan NFC';
+      nfcButton!.textContent = 'Scan NFC';
       nfcButton!['disabled'] = false;
       log(`Undocumented error occurred in NDEFReader: ${e.message}`);
     }
   }
 }
 
-function log(message) {
-  var logDiv = document.getElementById('log');
+function log(message: string) {
+  const logDiv = document.getElementById('log');
   const el = document.createElement('p');
   const messageEl = document.createTextNode(message);
   el.appendChild(messageEl);

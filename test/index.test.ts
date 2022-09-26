@@ -751,16 +751,14 @@ describe('handleLnurl', () => {
   test('Should POST to proxy with base64 encoded url in json body', async () => {
     await handleLNURL(url, invoice, proxyUrl);
     expect(fetchMock).toBeCalledTimes(1);
-    expect(fetchMock).toBeCalledWith(
-      'https://bitkassa.nl/proxy', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: url })
-      }
-    );
+    expect(fetchMock).toBeCalledWith('https://bitkassa.nl/proxy', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: url }),
+    });
   });
 
   test('Should return success false if fetch rejects', async () => {
@@ -830,16 +828,14 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
     });
     await handleLNURL(url, invoice, proxyUrl);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' })
-      }
-    );
+    expect(fetchMock).toHaveBeenLastCalledWith('https://bitkassa.nl/proxy', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' }),
+    });
   });
 
   test('Should call the right url when callback with querystring and no proxy', async () => {
@@ -859,16 +855,14 @@ describe('handleLnurl', () => {
         .mockResolvedValue({ status: 'OK', callback: 'https://callback?some=query', k1: '1234' }),
     });
     await handleLNURL(url, invoice, proxyUrl);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: 'https://callback?some=query&k1=1234&pr=asdf' })
-      }
-    );
+    expect(fetchMock).toHaveBeenLastCalledWith('https://bitkassa.nl/proxy', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: 'https://callback?some=query&k1=1234&pr=asdf' }),
+    });
   });
 
   test('Should strip lightning: from invoice with no proxy', async () => {
@@ -884,16 +878,14 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback', k1: '1234' }),
     });
     await handleLNURL(url, 'lightning:asdf', proxyUrl);
-    expect(fetchMock).toHaveBeenLastCalledWith(
-      'https://bitkassa.nl/proxy', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' })
-      }
-    );
+    expect(fetchMock).toHaveBeenLastCalledWith('https://bitkassa.nl/proxy', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url: 'https://callback?k1=1234&pr=asdf' }),
+    });
   });
 
   test('Should return success false if second fetch throws', async () => {
