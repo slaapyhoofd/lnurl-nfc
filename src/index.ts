@@ -431,11 +431,10 @@ export function bech32Decode(data: string) {
 export async function handleLNURL(
   lnurl: string,
   invoice: string,
-  proxy: string,
+  proxy?: string,
 ): Promise<IPaymentResult> {
   try {
-    const encodedLnurl = encodeURIComponent(lnurl);
-    const response = await fetch(`${proxy}?url=${encodedLnurl}`);
+    const response = await _sendRequest(lnurl, proxy); 
     const { callback, k1, reason, status } = await response.json();
 
     if (status === 'ERROR') {
@@ -461,11 +460,32 @@ export async function handleLNURL(
   }
 }
 
+/**
+ * _sendRequest calls the url directly, or posts the url in json to the proxy if provided { url: ... }
+ * @param url The url to call
+ * @param proxy Proxy to route the call in order to avoid CORS issues.
+ * @returns Promise with the `fetch` response.
+ */ 
+function _sendRequest(url: string, proxy?: string) : Promise<Response> {
+  if (!proxy) {
+    return fetch(url);
+  }
+
+  return fetch(proxy, {
+    method: 'POST',
+    headers: {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ url: url})
+  });
+}
+
 export async function handlePayment(
   callback: string,
   k1: string,
   invoice: string,
-  proxy: string,
+  proxy?: string,
 ): Promise<IPaymentResult> {
   try {
     const separator = callback.indexOf('?') === -1 ? '?' : '&';
@@ -473,8 +493,8 @@ export async function handlePayment(
       'lightning:',
       '',
     )}`;
-    const response = await fetch(`${proxy}?url=${encodeURIComponent(paymentRequest)}`);
-    const paymentResult = await response.json();
+    const response = await _sendRequest(paymentRequest, proxy);
+    const paymentResult = await response.json();  
 
     if (paymentResult.status === 'OK') {
       return {
