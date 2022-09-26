@@ -5,7 +5,9 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "npm run clean && tsc -d",
+    "build:umd": "webpack --mode production",
     "clean": "rimraf dist",
+    "example": "webpack --config example/webpack.config.js --mode development",
     "prettier": "prettier \"**/!(*.d).ts\"",
     "test": "jest --verbose false"
   },

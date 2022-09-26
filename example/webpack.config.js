@@ -1,8 +1,8 @@
 const path = require('path');
-const version = require('./package.json').version;
+const HtmlWebpackPlugin = require('html-webpack-plugin');
 
 module.exports = {
-  entry: './src/index.ts',
+  entry: './example/src/index.ts',
   module: {
     rules: [
       {
@@ -16,10 +16,14 @@ module.exports = {
     extensions: ['.tsx', '.ts', '.js'],
   },
   output: {
-    filename: `lnurl-nfc-v${version}.js`,
+    filename: 'dist.js',
     path: path.resolve(__dirname, 'dist'),
-    library: {
-      type: 'umd',
-    },
   },
+  plugins: [
+    new HtmlWebpackPlugin({
+      template: './example/src/index.html',
+      inject: 'body',
+      filename: 'index.html',
+    }),
+  ],
 };

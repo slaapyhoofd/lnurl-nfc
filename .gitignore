@@ -2,3 +2,4 @@
 node_modules/
 coverage/
 example/dist/
+/dist/lnurl-nfc-v*
