@@ -25,6 +25,7 @@ class LnurlReader {
         this.listening = false;
         // Checks if Web NFC is present
         if ('NDEFReader' in window) {
+            /* eslint-disable-next-line */
             // @ts-ignore
             this.ndefReader = new window.NDEFReader();
         }
@@ -67,7 +68,7 @@ class LnurlReader {
                 this.onLnurlRead = existingOnLnurlRead;
                 this.onReadingError = existingOnReadingError;
             };
-            return new Promise((resolve, reject) => __awaiter(this, void 0, void 0, function* () {
+            return new Promise((resolve, reject) => {
                 // When lnurl is read, invoke the existing callback, then stop and resolve.
                 this.onLnurlRead = (lnurl) => {
                     if (existingOnLnurlRead) {
@@ -93,14 +94,9 @@ class LnurlReader {
                 }
                 // Callbacks are in place, start listening.
                 if (!wasListening) {
-                    try {
-                        yield this.startListening(signal);
-                    }
-                    catch (e) {
-                        reject(e);
-                    }
+                    this.startListening(signal).catch((e) => reject(e));
                 }
-            }));
+            });
         });
     }
     /**
@@ -196,7 +192,7 @@ class LnurlReader {
         // lnurl record, it's stored here. Like a plain https link.
         const alternatives = [];
         // Check every ndef record.
-        for (let record of event.message.records) {
+        for (const record of event.message.records) {
             if (!record || !record.data) {
                 continue;
             }
@@ -401,7 +397,7 @@ function handleLNURL(lnurl, invoice, proxy) {
         catch (e) {
             return {
                 success: false,
-                message: e.message,
+                message: e instanceof Error ? e.message : 'Unhandled error handling lnurl',
             };
         }
     });
@@ -453,7 +449,7 @@ function handlePayment(callback, k1, invoice, proxy) {
         catch (e) {
             return {
                 success: false,
-                message: e.message,
+                message: e instanceof Error ? e.message : 'Unhandled error handling payment',
             };
         }
     });

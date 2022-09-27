@@ -1,6 +1,6 @@
 {
   "name": "lnurl-nfc",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "A library to help interacting with Web NFC to handle LNURLw payments",
   "main": "dist/index.js",
   "scripts": {
