@@ -1,4 +1,6 @@
-import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, LnurlReader } from '../src/index';
+/* eslint-disable @typescript-eslint/no-empty-function */
+
+import { decodeLnurl, ErrorReason, handleLNURL, LnurlResult, LnurlReader } from '../src';
 import { TextEncoder, TextDecoder } from 'util';
 
 // ref: https://jestjs.io/docs/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
@@ -378,8 +380,8 @@ describe('listenOnce', () => {
   let onSetReadingMock: jest.Mock;
   let onSetReadingErrorMock: jest.Mock;
   beforeEach(() => {
-    onSetReadingMock = jest.fn().mockImplementation((func) => {});
-    onSetReadingErrorMock = jest.fn().mockImplementation((func) => {});
+    onSetReadingMock = jest.fn().mockImplementation(() => {});
+    onSetReadingErrorMock = jest.fn().mockImplementation(() => {});
     scanMock = jest.fn().mockImplementation(() => Promise.resolve());
     const ndefReaderMockInstance = { scan: scanMock };
     Object.defineProperty(ndefReaderMockInstance, 'onreading', {
@@ -390,7 +392,7 @@ describe('listenOnce', () => {
     });
 
     const originalWindow = { ...window };
-    windowSpy = jest.spyOn(global, 'window', 'get') as any;
+    windowSpy = jest.spyOn(global, 'window', 'get');
     windowSpy.mockImplementation(() => ({
       ...originalWindow,
       NDEFReader: jest.fn().mockImplementation(() => ndefReaderMockInstance),
@@ -540,8 +542,8 @@ describe('startListening', () => {
   let onSetReadingMock: jest.Mock;
   let onSetReadingErrorMock: jest.Mock;
   beforeEach(() => {
-    onSetReadingMock = jest.fn().mockImplementation((func) => {});
-    onSetReadingErrorMock = jest.fn().mockImplementation((func) => {});
+    onSetReadingMock = jest.fn().mockImplementation(() => {});
+    onSetReadingErrorMock = jest.fn().mockImplementation(() => {});
     scanMock = jest.fn().mockImplementation(() => Promise.resolve());
     const ndefReaderMockInstance = { scan: scanMock };
     Object.defineProperty(ndefReaderMockInstance, 'onreading', {
@@ -552,7 +554,7 @@ describe('startListening', () => {
     });
 
     const originalWindow = { ...window };
-    windowSpy = jest.spyOn(global, 'window', 'get') as any;
+    windowSpy = jest.spyOn(global, 'window', 'get');
     windowSpy.mockImplementation(() => ({
       ...originalWindow,
       NDEFReader: jest.fn().mockImplementation(() => ndefReaderMockInstance),
@@ -711,6 +713,7 @@ describe('startListening', () => {
     const url2 = 'https://bitcoin.org/2';
     const binary2 = new TextEncoder().encode(url2);
     const ndefReadingEvent2 = { message: { records: [{ data: binary2 }] } };
+    /* eslint-disable-next-line */
     let onReadingCallback = (a: any) => {};
     onSetReadingMock.mockImplementation((callback) => {
       onReadingCallback = callback;

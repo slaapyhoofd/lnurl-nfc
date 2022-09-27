@@ -19,7 +19,7 @@ export enum ErrorReason {
 export class LnurlReader {
   private readonly ndefReader?: NDEFReader;
   private abortController?: AbortController;
-  private listening: boolean = false;
+  private listening = false;
 
   constructor(
     onLnurlRead?: (lnurl: string) => void | Promise<void>,
@@ -27,6 +27,7 @@ export class LnurlReader {
   ) {
     // Checks if Web NFC is present
     if ('NDEFReader' in window) {
+      /* eslint-disable-next-line */
       // @ts-ignore
       this.ndefReader = new window.NDEFReader();
     }
@@ -86,7 +87,7 @@ export class LnurlReader {
       this.onReadingError = existingOnReadingError;
     };
 
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
       // When lnurl is read, invoke the existing callback, then stop and resolve.
       this.onLnurlRead = (lnurl) => {
         if (existingOnLnurlRead) {
@@ -117,11 +118,7 @@ export class LnurlReader {
 
       // Callbacks are in place, start listening.
       if (!wasListening) {
-        try {
-          await this.startListening(signal);
-        } catch (e) {
-          reject(e);
-        }
+        this.startListening(signal).catch((e) => reject(e));
       }
     });
   }
@@ -158,7 +155,7 @@ export class LnurlReader {
       // Start the scanning. Returns almost immediately, or throws.
       await this.ndefReader.scan({ signal: this.abortController.signal });
       this.listening = true;
-    } catch (e) {
+    } catch (e: unknown) {
       // Handle documented errors
       if (e instanceof DOMException && !!e.name) {
         switch (e.name) {
@@ -193,7 +190,7 @@ export class LnurlReader {
    * Aborts the underlying scan call, and sets listening to false.
    * @param reason
    */
-  private _abort(reason: any): void {
+  private _abort(reason: unknown): void {
     this.abortController?.abort(reason);
     this.listening = false;
   }
@@ -229,7 +226,7 @@ export class LnurlReader {
     const alternatives: string[] = [];
 
     // Check every ndef record.
-    for (let record of event.message.records) {
+    for (const record of event.message.records) {
       if (!record || !record.data) {
         continue;
       }
@@ -303,7 +300,7 @@ function _decodeLnurlRecord(
   try {
     const recordData = decoder.decode(record.data);
     return decodeLnurl(recordData);
-  } catch (error) {
+  } catch (error: unknown) {
     return {
       isLnurl: LnurlResult.No,
     };
@@ -452,10 +449,10 @@ export async function handleLNURL(
     }
 
     return handlePayment(callback, k1, invoice, proxy);
-  } catch (e: any) {
+  } catch (e: unknown) {
     return {
       success: false,
-      message: e.message,
+      message: e instanceof Error ? e.message : 'Unhandled error handling lnurl',
     };
   }
 }
@@ -514,10 +511,10 @@ export async function handlePayment(
       success: false,
       message: 'invalid response',
     };
-  } catch (e: any) {
+  } catch (e: unknown) {
     return {
       success: false,
-      message: e.message,
+      message: e instanceof Error ? e.message : 'Unhandled error handling payment',
     };
   }
 }

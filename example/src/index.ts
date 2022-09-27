@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import { LnurlReader, ErrorReason, handleLNURL } from '../../src';
 
 log('initializing lnurl reader');
@@ -17,9 +19,9 @@ lnurlReader.onLnurlRead = async (lnurl) => {
     } else {
       log(`lnurlw flow failed. Reason: '${result.message}'`);
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Handle errors you caused in the code above (inside try)
-    log(`error: ${e.message}`);
+    log(`error: ${e instanceof Error ? e.message : e}`);
   }
 
   nfcButton!.textContent = 'Still scanning...';
@@ -32,7 +34,7 @@ lnurlReader.onLnurlRead = async (lnurl) => {
 };
 
 // Register onReadingError callback for when we start listening.
-lnurlReader.onReadingError = (error, detail) => {
+lnurlReader.onReadingError = (error) => {
   // If we end up in this error block, that means we failed to scan the card.
   // Note that we're still scanning. If you'd want to stop scanning, call `lnurlReader.stopListening()`.
   // Note that `stopListening()` returns control of the nfc reader to the OS, so if the card is still
@@ -52,10 +54,12 @@ lnurlReader.onReadingError = (error, detail) => {
         );
         break;
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Handle errors you caused in the code above (inside try)
     log(
-      `error handling the error. This is pretty bad. Developer: fix the example page please: ${e.message}`,
+      `error handling the error. This is pretty bad. Developer: fix the example page please: ${
+        e instanceof Error ? e.message : e
+      }`,
     );
   }
 
@@ -90,10 +94,10 @@ async function onClickNfcButton() {
     // This call will show a permissions popup if needed.
     await lnurlReader.startListening();
     log('listening for nfc tags');
-  } catch (e: any) {
+  } catch (e: unknown) {
     // Errors could occur BEFORE we're actually listening.
 
-    if (e in ErrorReason) {
+    if (typeof e === 'number' && e in ErrorReason) {
       switch (e) {
         case ErrorReason.unavailable:
           nfcButton!.textContent = 'Unavailable';
@@ -123,7 +127,7 @@ async function onClickNfcButton() {
     } else {
       nfcButton!.textContent = 'Scan NFC';
       nfcButton!['disabled'] = false;
-      log(`Undocumented error occurred in NDEFReader: ${e.message}`);
+      log(`Undocumented error occurred in NDEFReader: ${e instanceof Error ? e.message : e}`);
     }
   }
 }

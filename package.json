@@ -7,9 +7,22 @@
     "build": "npm run clean && tsc -d",
     "build:umd": "webpack --mode production",
     "clean": "rimraf dist",
+    "eslint": "eslint .",
     "example": "webpack --config example/webpack.config.js --mode development",
     "prettier": "prettier \"**/!(*.d).ts\"",
     "test": "jest --verbose false"
+  },
+  "eslintConfig": {
+    "extends": [
+      "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
+      "plugin:prettier/recommended"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint"
+    ],
+    "ignorePatterns": ["*.js", "dist/**"]
   },
   "prettier": {
     "printWidth": 100,
@@ -41,6 +54,11 @@
   "devDependencies": {
     "@types/jest": "^29.0.2",
     "@types/w3c-web-nfc": "^1.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.38.1",
+    "@typescript-eslint/parser": "^5.38.1",
+    "eslint": "^8.24.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.2.1",
     "html-webpack-plugin": "^5.5.0",
     "jest-environment-jsdom": "^29.0.3",
     "prettier": "^2.7.1",
