@@ -4,6 +4,7 @@ import { bech32 } from 'bech32';
 
 export interface IPaymentResult {
   success: boolean;
+  isRemoteMessage: boolean;
   message: string;
 }
 
@@ -437,6 +438,7 @@ export async function handleLNURL(
     if (status === 'ERROR') {
       return {
         success: false,
+        isRemoteMessage: true,
         message: reason,
       };
     }
@@ -444,6 +446,7 @@ export async function handleLNURL(
     if (!callback || typeof callback !== 'string' || !k1 || typeof k1 !== 'string') {
       return {
         success: false,
+        isRemoteMessage: false,
         message: 'invalid response',
       };
     }
@@ -452,6 +455,7 @@ export async function handleLNURL(
   } catch (e: unknown) {
     return {
       success: false,
+      isRemoteMessage: false,
       message: e instanceof Error ? e.message : 'Unhandled error handling lnurl',
     };
   }
@@ -496,6 +500,7 @@ export async function handlePayment(
     if (paymentResult.status === 'OK') {
       return {
         success: true,
+        isRemoteMessage: false,
         message: 'invoice payment initiated',
       };
     }
@@ -503,17 +508,20 @@ export async function handlePayment(
     if (paymentResult.status === 'ERROR') {
       return {
         success: false,
+        isRemoteMessage: true,
         message: paymentResult.reason,
       };
     }
 
     return {
       success: false,
+      isRemoteMessage: false,
       message: 'invalid response',
     };
   } catch (e: unknown) {
     return {
       success: false,
+      isRemoteMessage: false,
       message: e instanceof Error ? e.message : 'Unhandled error handling payment',
     };
   }

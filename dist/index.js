@@ -383,12 +383,14 @@ function handleLNURL(lnurl, invoice, proxy) {
             if (status === 'ERROR') {
                 return {
                     success: false,
+                    isRemoteMessage: true,
                     message: reason,
                 };
             }
             if (!callback || typeof callback !== 'string' || !k1 || typeof k1 !== 'string') {
                 return {
                     success: false,
+                    isRemoteMessage: false,
                     message: 'invalid response',
                 };
             }
@@ -397,6 +399,7 @@ function handleLNURL(lnurl, invoice, proxy) {
         catch (e) {
             return {
                 success: false,
+                isRemoteMessage: false,
                 message: e instanceof Error ? e.message : 'Unhandled error handling lnurl',
             };
         }
@@ -432,23 +435,27 @@ function handlePayment(callback, k1, invoice, proxy) {
             if (paymentResult.status === 'OK') {
                 return {
                     success: true,
+                    isRemoteMessage: false,
                     message: 'invoice payment initiated',
                 };
             }
             if (paymentResult.status === 'ERROR') {
                 return {
                     success: false,
+                    isRemoteMessage: true,
                     message: paymentResult.reason,
                 };
             }
             return {
                 success: false,
+                isRemoteMessage: false,
                 message: 'invalid response',
             };
         }
         catch (e) {
             return {
                 success: false,
+                isRemoteMessage: false,
                 message: e instanceof Error ? e.message : 'Unhandled error handling payment',
             };
         }

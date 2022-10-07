@@ -13,11 +13,14 @@ lnurlReader.onLnurlRead = async (lnurl) => {
 
     // Call the lnurlw flow
     const invoice = (document.getElementById('invoice') as HTMLInputElement)!.value;
-    const result = await handleLNURL(lnurl, invoice, '/proxy');
+
+    // NOTE: It's better to pass a proxy with this call, because otherwise you'll run into CORS issues
+    // if the client's responses do not return the proper CORS headers.
+    const result = await handleLNURL(lnurl, invoice);
     if (result.success) {
       log('lnurlw flow succeeded. Invoice should be paid shortly.');
     } else {
-      log(`lnurlw flow failed. Reason: '${result.message}'`);
+      log(`lnurlw flow failed. Reason from ${result.isRemoteMessage ? 'remote' : 'local'}: '${result.message}'`);
     }
   } catch (e: unknown) {
     // Handle errors you caused in the code above (inside try)
