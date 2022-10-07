@@ -767,7 +767,7 @@ describe('handleLnurl', () => {
   test('Should return success false if fetch rejects', async () => {
     fetchMock.mockRejectedValue(new Error('oops'));
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'oops' });
   });
 
   test('Should return success false if json rejects', async () => {
@@ -775,7 +775,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockRejectedValue(new Error('oops')),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'oops' });
   });
 
   test('Should return success false if json is not according to spec', async () => {
@@ -783,7 +783,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ something: 'else' }),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'invalid response' });
   });
 
   test('Should return success false if status error is returned', async () => {
@@ -791,7 +791,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'oops' }),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: true, message: 'oops' });
   });
 
   test('Should return success false if status error is returned without reason', async () => {
@@ -799,7 +799,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'ERROR' }),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: undefined });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: true, message: undefined });
   });
 
   test('Should return success false if status OK but no callback', async () => {
@@ -807,7 +807,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'OK', k1: '1234' }),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'invalid response' });
   });
 
   test('Should return success false if status OK but no k1', async () => {
@@ -815,7 +815,7 @@ describe('handleLnurl', () => {
       json: jest.fn().mockResolvedValue({ status: 'OK', callback: 'https://callback' }),
     });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'invalid response' });
   });
 
   test('Should call the right url when callback without querystring and no proxy', async () => {
@@ -900,7 +900,7 @@ describe('handleLnurl', () => {
       })
       .mockRejectedValueOnce(new Error('oops'));
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'oops' });
   });
 
   test('Should return success false if second fetch json throws', async () => {
@@ -914,7 +914,7 @@ describe('handleLnurl', () => {
         json: jest.fn().mockRejectedValue(new Error('oops')),
       });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'oops' });
   });
 
   test('Should return success false if second response invalid', async () => {
@@ -928,7 +928,7 @@ describe('handleLnurl', () => {
         json: jest.fn().mockResolvedValue({ something: 'else' }),
       });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'invalid response' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: false, message: 'invalid response' });
   });
 
   test('Should return success false if second status is error', async () => {
@@ -942,7 +942,7 @@ describe('handleLnurl', () => {
         json: jest.fn().mockResolvedValue({ status: 'ERROR', reason: 'oops' }),
       });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: 'oops' });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: true, message: 'oops' });
   });
 
   test('Should return success false if second status is error without reason', async () => {
@@ -956,7 +956,7 @@ describe('handleLnurl', () => {
         json: jest.fn().mockResolvedValue({ status: 'ERROR' }),
       });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: false, message: undefined });
+    expect(result).toStrictEqual({ success: false, isRemoteMessage: true, message: undefined });
   });
 
   test('Should return success if second status OK', async () => {
@@ -970,6 +970,6 @@ describe('handleLnurl', () => {
         json: jest.fn().mockResolvedValue({ status: 'OK' }),
       });
     const result = await handleLNURL(url, invoice, proxyUrl);
-    expect(result).toStrictEqual({ success: true, message: 'invoice payment initiated' });
+    expect(result).toStrictEqual({ success: true, isRemoteMessage: false, message: 'invoice payment initiated' });
   });
 });

@@ -1,5 +1,6 @@
 export interface IPaymentResult {
     success: boolean;
+    isRemoteMessage: boolean;
     message: string;
 }
 export declare enum ErrorReason {
